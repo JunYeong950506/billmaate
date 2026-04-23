@@ -155,19 +155,49 @@ export function calculateSettlement(expenses: Expense[], members: Member[]): Set
       rawShares[expense.payerId] = (rawShares[expense.payerId] ?? 0) + appliedKrwAmount;
       noteParts.push('참여 인원이 없어 결제자에게 전액 배분');
     } else {
-      const extraMap = new Map(expense.extraAllocations.map((item) => [item.memberId, item.amount]));
-      const extraTotal = expense.extraAllocations.reduce((acc, item) => acc + item.amount, 0);
-      const splitBase = appliedKrwAmount - extraTotal;
+      const participantSet = new Set(expense.participants);
+      const extraMap = new Map<string, number>();
+
+      expense.extraAllocations.forEach((item) => {
+        if (!participantSet.has(item.memberId)) {
+          return;
+        }
+
+        const normalized = Math.max(0, item.amount);
+        if (normalized <= 0) {
+          return;
+        }
+
+        extraMap.set(item.memberId, (extraMap.get(item.memberId) ?? 0) + normalized);
+      });
+
+      const rawExtraTotal = sum(Array.from(extraMap.values()));
+      let extraScale = 1;
+
+      if (rawExtraTotal > appliedKrwAmount + EPSILON && rawExtraTotal > EPSILON) {
+        extraScale = appliedKrwAmount / rawExtraTotal;
+        noteParts.push('추가 할당 합계 초과로 비율 조정');
+      }
+
+      const adjustedExtraTotal = rawExtraTotal * extraScale;
+      const splitBase = Math.max(0, appliedKrwAmount - adjustedExtraTotal);
       const perPerson = splitBase / expense.participants.length;
 
       expense.participants.forEach((memberId) => {
-        rawShares[memberId] = (rawShares[memberId] ?? 0) + perPerson + (extraMap.get(memberId) ?? 0);
+        const adjustedExtra = (extraMap.get(memberId) ?? 0) * extraScale;
+        rawShares[memberId] = (rawShares[memberId] ?? 0) + perPerson + adjustedExtra;
       });
 
-      if (expense.extraAllocations.length > 0) {
-        const extraSummary = expense.extraAllocations
-          .map((item) => `${memberNameMap.get(item.memberId) ?? item.memberId} +${roundTo2(item.amount).toFixed(2)}`)
+      if (extraMap.size > 0) {
+        const extraSummary = expense.participants
+          .filter((memberId) => (extraMap.get(memberId) ?? 0) > 0)
+          .map((memberId) => {
+            const memberName = memberNameMap.get(memberId) ?? memberId;
+            const adjustedExtra = (extraMap.get(memberId) ?? 0) * extraScale;
+            return `${memberName} +${roundTo2(adjustedExtra).toFixed(2)}`;
+          })
           .join(', ');
+
         noteParts.push(`추가 할당 반영 (${extraSummary})`);
       } else {
         noteParts.push('균등 분배');
