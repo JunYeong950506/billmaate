@@ -75,9 +75,7 @@ export function CurrencyPicker({
           onClick={() => handleSelect(item.code)}
         >
           <span className="currency-option-left">
-            <span className="currency-option-flag" aria-hidden="true">
-              {item.flag}
-            </span>
+            <img className="currency-option-flag" src={item.flag} alt="" loading="lazy" />
             <span className="currency-option-name">
               <strong>{getCurrencyLabel(item)}</strong>
               <span>{item.country}</span>
@@ -115,9 +113,7 @@ export function CurrencyPicker({
           </>
         ) : (
           <>
-            <span className="currency-picker-flag" aria-hidden="true">
-              {selected.flag}
-            </span>
+            <img className="currency-picker-flag" src={selected.flag} alt="" loading="lazy" />
             <span className="currency-picker-trigger-text">
               <strong>{getCurrencyLabel(selected)}</strong>
               <span>{selected.code}</span>
@@ -164,3 +160,4 @@ export function CurrencyPicker({
     </div>
   );
 }
+

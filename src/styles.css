@@ -1840,14 +1840,13 @@ select {
 }
 
 .currency-picker-flag {
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'EmojiOne Color', sans-serif;
-  font-variant-emoji: emoji;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.4em;
-  font-size: 20px;
-  line-height: 1;
+  display: block;
+  width: 30px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid #d6dcef;
+  object-fit: cover;
+  background: #ffffff;
 }
 
 .currency-picker-trigger-text {
@@ -1992,17 +1991,13 @@ select {
 }
 
 .currency-option-flag {
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'EmojiOne Color', sans-serif;
-  font-variant-emoji: emoji;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 36px;
   height: 26px;
   border-radius: 6px;
-  background: #eceff7;
-  font-size: 18px;
-  line-height: 1;
+  border: 1px solid #d6dcef;
+  object-fit: cover;
+  background: #ffffff;
 }
 
 .currency-option-name {
@@ -2347,3 +2342,5 @@ select {
     border-radius: 16px;
   }
 }
+
+

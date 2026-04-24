@@ -364,9 +364,7 @@ export function ExpenseComposer({
           >
             <span className="foreign-currency-default-badge">기본 외화</span>
             <span className="foreign-currency-default-main">
-              <span className="currency-option-flag" aria-hidden="true">
-                {defaultForeignMeta.flag}
-              </span>
+              <img className="currency-option-flag" src={defaultForeignMeta.flag} alt="" loading="lazy" />
               <span className="foreign-currency-default-text">
                 <strong>{defaultForeignMeta.name}</strong>
                 <span>
@@ -1381,6 +1379,7 @@ export function ExpenseComposer({
     </section>
   );
 }
+
 
 
 
