@@ -1,14 +1,16 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { FormEvent, useEffect, useMemo, useState } from 'react';
 
-import { Expense, NewExpenseInput, Trip } from '../types';
+import { Expense, NewExpenseInput, NewTripInput, Trip } from '../types';
 import { formatDateRange, formatKrw } from '../utils/format';
 import { resolveAppliedKrwAmount } from '../utils/expenseAmount';
 import { getCurrencyMeta } from '../constants/currencies';
 import { ExpenseComposer } from './ExpenseComposer';
 import { ExpenseList } from './ExpenseList';
 import { SettlementView } from './SettlementView';
+import { CurrencyPicker } from './CurrencyPicker';
 
-type TripTab = 'record' | 'settlement';
+type TripTab = 'record' | 'settlementDetail' | 'settlementResult';
+type ForceTab = 'record' | 'settlement';
 
 interface TripDetailProps {
   trip: Trip;
@@ -17,8 +19,26 @@ interface TripDetailProps {
   onSaveExpense: (payload: NewExpenseInput, expenseId?: string) => void;
   onRemoveExpense: (expenseId: string) => void;
   onSetExpenseFinalKrwAmount: (expenseId: string, finalKrwAmount?: number) => void;
-  forceTab?: TripTab;
+  onUpdateTrip: (tripId: string, payload: NewTripInput) => void;
+  onRequestRecordTab?: () => void;
+  forceTab?: ForceTab;
   defaultTab?: TripTab;
+}
+
+function parseMembers(value: string): string[] {
+  const tokens = value
+    .split(/[\n,]/)
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+
+  const seen = new Set<string>();
+  return tokens.filter((name) => {
+    if (seen.has(name)) {
+      return false;
+    }
+    seen.add(name);
+    return true;
+  });
 }
 
 export function TripDetail({
@@ -28,6 +48,8 @@ export function TripDetail({
   onSaveExpense,
   onRemoveExpense,
   onSetExpenseFinalKrwAmount,
+  onUpdateTrip,
+  onRequestRecordTab,
   forceTab,
   defaultTab = 'record',
 }: TripDetailProps): JSX.Element {
@@ -36,7 +58,16 @@ export function TripDetail({
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [composerRenderKey, setComposerRenderKey] = useState(0);
 
-  const activeTab = forceTab ?? tab;
+  const [isTripEditing, setTripEditing] = useState(false);
+  const [tripName, setTripName] = useState(trip.name);
+  const [tripStartDate, setTripStartDate] = useState(trip.startDate);
+  const [tripEndDate, setTripEndDate] = useState(trip.endDate);
+  const [membersText, setMembersText] = useState(trip.members.map((member) => member.name).join(', '));
+  const [tripDefaultCurrency, setTripDefaultCurrency] = useState(trip.defaultCurrency);
+  const [defaultPayerName, setDefaultPayerName] = useState('');
+  const [tripEditError, setTripEditError] = useState<string | null>(null);
+
+  const activeTab: TripTab = forceTab === 'record' ? 'record' : tab;
   const isMobileRecord = layoutMode === 'mobile' && activeTab === 'record';
 
   const total = useMemo(() => expenses.reduce((sum, item) => sum + resolveAppliedKrwAmount(item).amount, 0), [expenses]);
@@ -45,8 +76,8 @@ export function TripDetail({
     [expenses],
   );
 
-  const defaultPayerName = useMemo(() => {
-    return trip.members.find((member) => member.id === trip.defaultPayerId)?.name ?? '미지정';
+  const tripDefaultPayerName = useMemo(() => {
+    return trip.members.find((member) => member.id === trip.defaultPayerId)?.name ?? trip.members[0]?.name ?? '';
   }, [trip.defaultPayerId, trip.members]);
 
   const editingExpense = useMemo(() => {
@@ -56,11 +87,21 @@ export function TripDetail({
     return sortedExpenses.find((expense) => expense.id === editingExpenseId) ?? null;
   }, [editingExpenseId, sortedExpenses]);
 
+  const parsedMembers = useMemo(() => parseMembers(membersText), [membersText]);
+
   useEffect(() => {
     setTab(defaultTab);
     setEditingExpenseId(null);
     setComposerOpen(false);
-  }, [defaultTab, trip.id]);
+    setTripEditing(false);
+    setTripName(trip.name);
+    setTripStartDate(trip.startDate);
+    setTripEndDate(trip.endDate);
+    setMembersText(trip.members.map((member) => member.name).join(', '));
+    setTripDefaultCurrency(trip.defaultCurrency);
+    setDefaultPayerName(tripDefaultPayerName);
+    setTripEditError(null);
+  }, [defaultTab, trip, tripDefaultPayerName]);
 
   useEffect(() => {
     if (!editingExpenseId) {
@@ -73,10 +114,47 @@ export function TripDetail({
   }, [editingExpenseId, sortedExpenses]);
 
   useEffect(() => {
-    if (!isMobileRecord) {
-      setComposerOpen(false);
+    if (forceTab === 'record') {
+      if (tab !== 'record') {
+        setTab('record');
+      }
+      return;
     }
-  }, [isMobileRecord]);
+
+    if (forceTab === 'settlement' && tab === 'record') {
+      setTab('settlementResult');
+    }
+  }, [forceTab, tab]);
+
+
+  useEffect(() => {
+    if (layoutMode !== 'mobile' || !isComposerOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [isComposerOpen, layoutMode]);
+
+  useEffect(() => {
+    if (parsedMembers.length === 0) {
+      if (defaultPayerName) {
+        setDefaultPayerName('');
+      }
+      return;
+    }
+
+    if (!parsedMembers.includes(defaultPayerName)) {
+      setDefaultPayerName(parsedMembers[0]);
+    }
+  }, [parsedMembers, defaultPayerName]);
 
   function closeComposer(): void {
     setComposerOpen(false);
@@ -91,7 +169,7 @@ export function TripDetail({
 
   function handleEditExpense(expenseId: string): void {
     setEditingExpenseId(expenseId);
-    if (isMobileRecord) {
+    if (layoutMode === 'mobile') {
       setComposerOpen(true);
       return;
     }
@@ -105,11 +183,12 @@ export function TripDetail({
     onSaveExpense(payload, expenseId);
     setEditingExpenseId(null);
 
-    if (isMobileRecord) {
+    if (layoutMode === 'mobile') {
       setComposerOpen(false);
       setComposerRenderKey((prev) => prev + 1);
     }
   }
+
 
   function handleRemoveExpense(expenseId: string): void {
     onRemoveExpense(expenseId);
@@ -117,6 +196,107 @@ export function TripDetail({
       setEditingExpenseId(null);
     }
   }
+
+  function handleCreateExpenseFromSettlement(): void {
+    if (forceTab === 'settlement') {
+      if (layoutMode === 'mobile') {
+        openComposerForCreate();
+        return;
+      }
+      onRequestRecordTab?.();
+      return;
+    }
+
+    if (!forceTab) {
+      setTab('record');
+    }
+    openComposerForCreate();
+  }
+
+  function handleEditExpenseFromSettlement(expenseId: string): void {
+    if (forceTab === 'settlement') {
+      if (layoutMode === 'mobile') {
+        setEditingExpenseId(expenseId);
+        setComposerOpen(true);
+        return;
+      }
+      onRequestRecordTab?.();
+      return;
+    }
+
+    if (!forceTab) {
+      setTab('record');
+    }
+    handleEditExpense(expenseId);
+  }
+
+  function handleOpenTripEdit(): void {
+    setTripName(trip.name);
+    setTripStartDate(trip.startDate);
+    setTripEndDate(trip.endDate);
+    setMembersText(trip.members.map((member) => member.name).join(', '));
+    setTripDefaultCurrency(trip.defaultCurrency);
+    setDefaultPayerName(tripDefaultPayerName);
+    setTripEditError(null);
+    setTripEditing(true);
+  }
+
+  function handleCancelTripEdit(): void {
+    setTripEditing(false);
+    setTripEditError(null);
+    setTripName(trip.name);
+    setTripStartDate(trip.startDate);
+    setTripEndDate(trip.endDate);
+    setMembersText(trip.members.map((member) => member.name).join(', '));
+    setTripDefaultCurrency(trip.defaultCurrency);
+    setDefaultPayerName(tripDefaultPayerName);
+  }
+
+  function handleSubmitTripEdit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+
+    if (!tripName.trim()) {
+      setTripEditError('여행 이름을 입력해주세요.');
+      return;
+    }
+
+    if (!tripStartDate || !tripEndDate) {
+      setTripEditError('여행 날짜를 입력해주세요.');
+      return;
+    }
+
+    if (tripStartDate > tripEndDate) {
+      setTripEditError('종료일은 시작일보다 빠를 수 없습니다.');
+      return;
+    }
+
+    if (parsedMembers.length < 2) {
+      setTripEditError('멤버는 최소 2명 이상 입력해주세요.');
+      return;
+    }
+
+    if (!defaultPayerName) {
+      setTripEditError('기본 결제자를 선택해주세요.');
+      return;
+    }
+
+    try {
+      onUpdateTrip(trip.id, {
+        name: tripName,
+        startDate: tripStartDate,
+        endDate: tripEndDate,
+        members: parsedMembers,
+        defaultCurrency: tripDefaultCurrency,
+        defaultPayerName,
+      });
+      setTripEditError(null);
+      setTripEditing(false);
+    } catch (error) {
+      setTripEditError(error instanceof Error ? error.message : '여행 정보 수정 중 오류가 발생했습니다.');
+    }
+  }
+
+  const settlementMode = activeTab === 'settlementDetail' ? 'detail' : 'result';
 
   return (
     <div className="trip-detail-stack">
@@ -133,40 +313,120 @@ export function TripDetail({
       </section>
 
       <section className="panel trip-info-panel">
-        <h3>여행 정보</h3>
-        <div className="trip-info-grid">
-          <p>
-            <b>멤버</b>
-            <span>{trip.members.map((member) => member.name).join(', ')}</span>
-          </p>
-          <p>
-            <b>기본 통화</b>
-            <span>
-              {trip.defaultCurrency} ({getCurrencyMeta(trip.defaultCurrency).name})
-            </span>
-          </p>
-          <p>
-            <b>기본 결제자</b>
-            <span>{defaultPayerName}</span>
-          </p>
+        <div className="panel-header">
+          <h3>여행 정보</h3>
+          {isTripEditing ? null : (
+            <button type="button" className="secondary-btn" onClick={handleOpenTripEdit}>
+              수정
+            </button>
+          )}
         </div>
+
+        {isTripEditing ? (
+          <form className="form-grid" onSubmit={handleSubmitTripEdit}>
+            <label className="field">
+              <span>여행 이름</span>
+              <input value={tripName} onChange={(event) => setTripName(event.target.value)} placeholder="예: 7월 도쿄 여행" />
+            </label>
+
+            <div className="inline-fields">
+              <label className="field">
+                <span>시작일</span>
+                <input type="date" value={tripStartDate} onChange={(event) => setTripStartDate(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>종료일</span>
+                <input type="date" value={tripEndDate} onChange={(event) => setTripEndDate(event.target.value)} />
+              </label>
+            </div>
+
+            <label className="field">
+              <span>멤버 (쉼표 또는 줄바꿈)</span>
+              <textarea
+                value={membersText}
+                onChange={(event) => setMembersText(event.target.value)}
+                placeholder={'예: 민수, 지은, 태호'}
+                rows={3}
+              />
+            </label>
+
+            <div className="field">
+              <span>기본 통화</span>
+              <CurrencyPicker value={tripDefaultCurrency} onChange={setTripDefaultCurrency} modalTitle="기본 통화 선택" />
+            </div>
+
+            <div className="field">
+              <span>기본 결제자</span>
+              <div className="chip-scroll">
+                {parsedMembers.length === 0 ? <p className="hint-text">멤버 입력 후 선택할 수 있습니다.</p> : null}
+                {parsedMembers.map((memberName) => (
+                  <button
+                    key={memberName}
+                    type="button"
+                    className={`chip ${defaultPayerName === memberName ? 'chip-active' : ''}`}
+                    onClick={() => setDefaultPayerName(memberName)}
+                  >
+                    {memberName}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {tripEditError ? <p className="error-text">{tripEditError}</p> : null}
+
+            <div className="actions-row">
+              <button type="button" className="secondary-btn" onClick={handleCancelTripEdit}>
+                취소
+              </button>
+              <button type="submit" className="primary-btn">
+                여행 정보 저장
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="trip-info-grid">
+            <p>
+              <b>멤버</b>
+              <span>{trip.members.map((member) => member.name).join(', ')}</span>
+            </p>
+            <p>
+              <b>기본 통화</b>
+              <span>
+                {trip.defaultCurrency} ({getCurrencyMeta(trip.defaultCurrency).name})
+              </span>
+            </p>
+            <p>
+              <b>기본 결제자</b>
+              <span>{tripDefaultPayerName || '미지정'}</span>
+            </p>
+          </div>
+        )}
       </section>
 
-      {forceTab ? null : (
+      {forceTab === 'record' ? null : (
         <div className="tab-row">
+          {forceTab === 'settlement' ? null : (
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'record' ? 'tab-btn-active' : ''}`}
+              onClick={() => setTab('record')}
+            >
+              지출 내역
+            </button>
+          )}
           <button
             type="button"
-            className={`tab-btn ${activeTab === 'record' ? 'tab-btn-active' : ''}`}
-            onClick={() => setTab('record')}
+            className={`tab-btn ${activeTab === 'settlementDetail' ? 'tab-btn-active' : ''}`}
+            onClick={() => setTab('settlementDetail')}
           >
-            기록 탭
+            정산 내역
           </button>
           <button
             type="button"
-            className={`tab-btn ${activeTab === 'settlement' ? 'tab-btn-active' : ''}`}
-            onClick={() => setTab('settlement')}
+            className={`tab-btn ${activeTab === 'settlementResult' ? 'tab-btn-active' : ''}`}
+            onClick={() => setTab('settlementResult')}
           >
-            정산 탭
+            정산 결과
           </button>
         </div>
       )}
@@ -202,35 +462,7 @@ export function TripDetail({
             </button>
           ) : null}
 
-          {isMobileRecord && isComposerOpen ? (
-            <div className="sheet-overlay" role="presentation" onClick={closeComposer}>
-              <section
-                className="bottom-sheet"
-                role="dialog"
-                aria-modal="true"
-                aria-label="지출 추가"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="bottom-sheet-head">
-                  <strong>{editingExpense ? '지출 수정' : '지출 추가'}</strong>
-                  <button type="button" className="text-btn" onClick={closeComposer}>
-                    닫기
-                  </button>
-                </div>
 
-                <div className="bottom-sheet-body">
-                  <ExpenseComposer
-                    key={`mobile-composer-${trip.id}-${composerRenderKey}-${editingExpenseId ?? 'new'}`}
-                    trip={trip}
-                    quickMode
-                    editingExpense={editingExpense}
-                    onSaveExpense={handleSaveExpense}
-                    onCancelEdit={() => setEditingExpenseId(null)}
-                  />
-                </div>
-              </section>
-            </div>
-          ) : null}
         </>
       ) : (
         <SettlementView
@@ -238,8 +470,53 @@ export function TripDetail({
           expenses={sortedExpenses}
           layoutMode={layoutMode}
           onSetExpenseFinalKrwAmount={onSetExpenseFinalKrwAmount}
+          onRequestAddExpense={handleCreateExpenseFromSettlement}
+          onRequestEditExpense={handleEditExpenseFromSettlement}
+          mode={settlementMode}
         />
       )}
+
+      {layoutMode === 'mobile' && isComposerOpen ? (
+        <div className="sheet-overlay expense-composer-overlay" role="presentation" onClick={closeComposer}>
+          <section
+            className="bottom-sheet expense-composer-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="지출 추가"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="bottom-sheet-head">
+              <strong>{editingExpense ? '지출 수정' : '지출 추가'}</strong>
+              <button type="button" className="text-btn" onClick={closeComposer}>
+                닫기
+              </button>
+            </div>
+
+            <div className="bottom-sheet-body">
+              <ExpenseComposer
+                key={`mobile-composer-${trip.id}-${composerRenderKey}-${editingExpenseId ?? 'new'}`}
+                trip={trip}
+                quickMode
+                editingExpense={editingExpense}
+                onSaveExpense={handleSaveExpense}
+                onCancelEdit={() => setEditingExpenseId(null)}
+              />
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+

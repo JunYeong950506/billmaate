@@ -1,6 +1,6 @@
 ﻿import { FormEvent, useEffect, useMemo, useState } from 'react';
 
-import { getOrderedCurrencies, getCurrencyMeta } from '../constants/currencies';
+import { getCurrencyMeta, getOrderedCurrencies } from '../constants/currencies';
 import { CurrencyCode, NewTripInput } from '../types';
 import { todayIso } from '../utils/format';
 
@@ -28,6 +28,7 @@ function parseMembers(value: string): string[] {
 export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Element {
   const defaultStartDate = todayIso();
 
+  const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(defaultStartDate);
@@ -37,7 +38,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
   const [error, setError] = useState<string | null>(null);
 
   const members = useMemo(() => parseMembers(membersText), [membersText]);
-  const currencies = useMemo(() => getOrderedCurrencies(defaultCurrency), [defaultCurrency]);
+  const orderedCurrencies = useMemo(() => getOrderedCurrencies(defaultCurrency), [defaultCurrency]);
 
   useEffect(() => {
     if (members.length === 0) {
@@ -50,21 +51,39 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
     }
   }, [members, defaultPayerName]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-
+  function validateStep1(): boolean {
     if (!name.trim()) {
       setError('여행 이름을 입력해주세요.');
-      return;
+      return false;
     }
 
     if (!startDate || !endDate) {
       setError('여행 날짜를 입력해주세요.');
-      return;
+      return false;
     }
 
     if (startDate > endDate) {
       setError('종료일은 시작일보다 빠를 수 없습니다.');
+      return false;
+    }
+
+    setError(null);
+    return true;
+  }
+
+  function moveToStep2(): void {
+    if (!validateStep1()) {
+      return;
+    }
+
+    setStep(2);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+
+    if (step === 1) {
+      moveToStep2();
       return;
     }
 
@@ -94,69 +113,87 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
     <section className="panel">
       <h2>새 여행 만들기</h2>
       <form className="form-grid" onSubmit={handleSubmit}>
-        <label className="field">
-          <span>여행 이름</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 7월 도쿄 여행" />
-        </label>
-
-        <div className="inline-fields">
-          <label className="field">
-            <span>시작일</span>
-            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>종료일</span>
-            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-          </label>
-        </div>
-
-        <label className="field">
-          <span>멤버 (쉼표 또는 줄바꿈)</span>
-          <textarea
-            value={membersText}
-            onChange={(event) => setMembersText(event.target.value)}
-            placeholder={'예: 민수, 지은, 태호'}
-            rows={3}
-          />
-        </label>
-
-        <div className="field">
-          <span>기본 통화</span>
-          <div className="chip-scroll">
-            {currencies.map((currency) => (
-              <button
-                key={currency.code}
-                type="button"
-                className={`chip ${defaultCurrency === currency.code ? 'chip-active' : ''}`}
-                onClick={() => setDefaultCurrency(currency.code)}
-              >
-                {currency.code}
-              </button>
+        <div className="new-trip-step-head">
+          <div className="new-trip-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={2} aria-valuenow={step}>
+            {[1, 2].map((stepValue) => (
+              <span
+                key={`new-trip-step-${stepValue}`}
+                className={`new-trip-step-dot ${step >= stepValue ? 'new-trip-step-dot-active' : ''}`}
+              />
             ))}
           </div>
+          <p className="hint-text">Step {step}/2</p>
         </div>
 
-        <div className="field">
-          <span>기본 결제자</span>
-          <div className="chip-scroll">
-            {members.length === 0 ? <p className="hint-text">멤버 입력 후 선택할 수 있습니다.</p> : null}
-            {members.map((memberName) => (
-              <button
-                key={memberName}
-                type="button"
-                className={`chip ${defaultPayerName === memberName ? 'chip-active' : ''}`}
-                onClick={() => setDefaultPayerName(memberName)}
-              >
-                {memberName}
-              </button>
-            ))}
-          </div>
-        </div>
+        {step === 1 ? (
+          <>
+            <label className="field">
+              <span>여행 이름</span>
+              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 7월 도쿄 여행" />
+            </label>
 
-        <div className="panel-muted">
-          <strong>{getCurrencyMeta(defaultCurrency).code}</strong>
-          <p>지출 입력 기본 통화는 {getCurrencyMeta(defaultCurrency).name}으로 설정됩니다.</p>
-        </div>
+            <div className="inline-fields">
+              <label className="field">
+                <span>시작일</span>
+                <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>종료일</span>
+                <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+              </label>
+            </div>
+
+            <div className="field">
+              <span>주 통화</span>
+              <div className="chip-scroll currency-chip-scroll">
+                {orderedCurrencies.map((currency) => (
+                  <button
+                    key={`new-trip-currency-${currency.code}`}
+                    type="button"
+                    className={`chip currency-chip ${defaultCurrency === currency.code ? 'chip-active' : ''}`}
+                    onClick={() => setDefaultCurrency(currency.code)}
+                  >
+                    {currency.symbol} {currency.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="field">
+              <span>멤버 (쉼표 또는 줄바꿈)</span>
+              <textarea
+                value={membersText}
+                onChange={(event) => setMembersText(event.target.value)}
+                placeholder={'예: 민수, 지은, 태호'}
+                rows={4}
+              />
+            </label>
+
+            <div className="field">
+              <span>기본 결제자</span>
+              <div className="chip-scroll">
+                {members.length === 0 ? <p className="hint-text">멤버 입력 후 선택할 수 있습니다.</p> : null}
+                {members.map((memberName) => (
+                  <button
+                    key={memberName}
+                    type="button"
+                    className={`chip ${defaultPayerName === memberName ? 'chip-active' : ''}`}
+                    onClick={() => setDefaultPayerName(memberName)}
+                  >
+                    {memberName}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel-muted">
+              <strong>{getCurrencyMeta(defaultCurrency).code}</strong>
+              <p>지출 입력 기본 통화는 {getCurrencyMeta(defaultCurrency).name}으로 설정됩니다.</p>
+            </div>
+          </>
+        )}
 
         {error ? <p className="error-text">{error}</p> : null}
 
@@ -166,9 +203,22 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
               취소
             </button>
           ) : null}
-          <button type="submit" className="primary-btn">
-            여행 저장
-          </button>
+
+          {step === 2 ? (
+            <button type="button" className="secondary-btn" onClick={() => setStep(1)}>
+              ← 이전
+            </button>
+          ) : null}
+
+          {step === 1 ? (
+            <button type="button" className="primary-btn" onClick={moveToStep2}>
+              다음 →
+            </button>
+          ) : (
+            <button type="submit" className="primary-btn">
+              여행 저장
+            </button>
+          )}
         </div>
       </form>
     </section>

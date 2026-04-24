@@ -147,8 +147,14 @@ export function calculateSettlement(expenses: Expense[], members: Member[]): Set
 
     if (applied.source === 'final') {
       noteParts.push('실제 원화 금액 기준');
+    } else if (expense.originalCurrency === 'KRW') {
+      noteParts.push('원화 입력값 사용');
     } else {
       noteParts.push('예상 원화 금액 임시 사용');
+    }
+
+    if (expense.originalCurrency !== 'KRW' && applied.source === 'estimated' && estimatedKrwAmount <= EPSILON) {
+      noteParts.push('환율/예상 원화 미입력으로 0원 처리');
     }
 
     if (expense.participants.length === 0) {
@@ -305,3 +311,5 @@ export function minimumTransfers(netAmounts: Record<string, number>): Transfer[]
 
   return transfers;
 }
+
+

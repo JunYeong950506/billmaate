@@ -1,6 +1,6 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { NewExpenseInput, NewTripInput, TripSummary } from './types';
+import { Expense, NewExpenseInput, NewTripInput, Trip, TripSummary } from './types';
 import { resolveAppliedKrwAmount } from './utils/expenseAmount';
 import { useLayoutMode } from './hooks/useLayoutMode';
 import { useTravelStore } from './store/useTravelStore';
@@ -12,6 +12,11 @@ import { MobileShell } from './components/shells/MobileShell';
 
 type DesktopView = 'home' | 'new' | 'detail';
 type MobileNav = 'home' | 'record' | 'settlement' | 'new';
+
+interface RemovedTripSnapshot {
+  trip: Trip;
+  expenses: Expense[];
+}
 
 function buildTripSummaries(
   tripIds: string[],
@@ -39,8 +44,11 @@ export default function App(): JSX.Element {
   const expenses = useTravelStore((state) => state.expenses);
   const createTrip = useTravelStore((state) => state.createTrip);
   const addExpense = useTravelStore((state) => state.addExpense);
+  const updateTrip = useTravelStore((state) => state.updateTrip);
   const updateExpense = useTravelStore((state) => state.updateExpense);
   const removeExpense = useTravelStore((state) => state.removeExpense);
+  const removeTrip = useTravelStore((state) => state.removeTrip);
+  const restoreTripWithExpenses = useTravelStore((state) => state.restoreTripWithExpenses);
   const setExpenseFinalKrwAmount = useTravelStore((state) => state.setExpenseFinalKrwAmount);
 
   const sortedTrips = useMemo(() => [...trips].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [trips]);
@@ -54,6 +62,8 @@ export default function App(): JSX.Element {
   const [mobileNav, setMobileNav] = useState<MobileNav>('home');
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [removedTripSnapshot, setRemovedTripSnapshot] = useState<RemovedTripSnapshot | null>(null);
+  const undoTimerRef = useRef<number | null>(null);
 
   const selectedTrip = useMemo(
     () => sortedTrips.find((trip) => trip.id === selectedTripId) ?? null,
@@ -86,6 +96,14 @@ export default function App(): JSX.Element {
     }
   }, [selectedTrip, desktopView, mobileNav]);
 
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current !== null) {
+        window.clearTimeout(undoTimerRef.current);
+      }
+    };
+  }, []);
+
   function handleCreateTrip(payload: NewTripInput): void {
     try {
       const created = createTrip(payload);
@@ -105,6 +123,17 @@ export default function App(): JSX.Element {
     setErrorMessage(null);
   }
 
+  function handleUpdateTrip(tripId: string, payload: NewTripInput): void {
+    try {
+      updateTrip(tripId, payload);
+      setErrorMessage(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '여행 수정 중 오류가 발생했습니다.';
+      setErrorMessage(message);
+      throw error;
+    }
+  }
+
   function handleSaveExpense(payload: NewExpenseInput, expenseId?: string): void {
     if (expenseId) {
       updateExpense(expenseId, payload);
@@ -120,6 +149,54 @@ export default function App(): JSX.Element {
 
   function handleSetExpenseFinalKrwAmount(expenseId: string, finalKrwAmount?: number): void {
     setExpenseFinalKrwAmount(expenseId, finalKrwAmount);
+  }
+
+  function handleRemoveTrip(tripId: string): void {
+    const removedTrip = sortedTrips.find((trip) => trip.id === tripId);
+    if (!removedTrip) {
+      return;
+    }
+
+    const removedExpenses = expenses.filter((expense) => expense.tripId === tripId);
+
+    removeTrip(tripId);
+
+    if (undoTimerRef.current !== null) {
+      window.clearTimeout(undoTimerRef.current);
+    }
+
+    setRemovedTripSnapshot({
+      trip: removedTrip,
+      expenses: removedExpenses,
+    });
+
+    undoTimerRef.current = window.setTimeout(() => {
+      setRemovedTripSnapshot(null);
+      undoTimerRef.current = null;
+    }, 3000);
+
+    if (selectedTripId === tripId) {
+      setSelectedTripId(null);
+      setDesktopView('home');
+      setMobileNav('home');
+    }
+
+    setErrorMessage(null);
+  }
+
+  function handleUndoRemoveTrip(): void {
+    if (!removedTripSnapshot) {
+      return;
+    }
+
+    if (undoTimerRef.current !== null) {
+      window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+
+    restoreTripWithExpenses(removedTripSnapshot.trip, removedTripSnapshot.expenses);
+    setRemovedTripSnapshot(null);
+    setErrorMessage(null);
   }
 
   function renderDesktopContent(): JSX.Element {
@@ -143,7 +220,8 @@ export default function App(): JSX.Element {
           onSaveExpense={handleSaveExpense}
           onRemoveExpense={handleRemoveExpense}
           onSetExpenseFinalKrwAmount={handleSetExpenseFinalKrwAmount}
-          defaultTab="settlement"
+          onUpdateTrip={handleUpdateTrip}
+          defaultTab="settlementResult"
         />
       );
     }
@@ -154,6 +232,8 @@ export default function App(): JSX.Element {
         summaries={summaries}
         onOpen={handleOpenTrip}
         onCreate={() => setDesktopView('new')}
+        onRemove={handleRemoveTrip}
+        showCreateAction={false}
       />
     );
   }
@@ -179,6 +259,8 @@ export default function App(): JSX.Element {
           onSaveExpense={handleSaveExpense}
           onRemoveExpense={handleRemoveExpense}
           onSetExpenseFinalKrwAmount={handleSetExpenseFinalKrwAmount}
+          onUpdateTrip={handleUpdateTrip}
+          onRequestRecordTab={() => setMobileNav('record')}
           forceTab="record"
         />
       );
@@ -193,6 +275,8 @@ export default function App(): JSX.Element {
           onSaveExpense={handleSaveExpense}
           onRemoveExpense={handleRemoveExpense}
           onSetExpenseFinalKrwAmount={handleSetExpenseFinalKrwAmount}
+          onUpdateTrip={handleUpdateTrip}
+          onRequestRecordTab={() => setMobileNav('record')}
           forceTab="settlement"
         />
       );
@@ -204,7 +288,23 @@ export default function App(): JSX.Element {
         summaries={summaries}
         onOpen={handleOpenTrip}
         onCreate={() => setMobileNav('new')}
+        onRemove={handleRemoveTrip}
       />
+    );
+  }
+
+  function renderUndoToast(): JSX.Element | null {
+    if (!removedTripSnapshot) {
+      return null;
+    }
+
+    return (
+      <div className="undo-toast" role="status" aria-live="polite">
+        <span>[{removedTripSnapshot.trip.name}] 삭제됐어요.</span>
+        <button type="button" className="text-btn undo-toast-btn" onClick={handleUndoRemoveTrip}>
+          되돌리기
+        </button>
+      </div>
     );
   }
 
@@ -217,11 +317,13 @@ export default function App(): JSX.Element {
           summaries={summaries}
           selectedTripId={selectedTrip?.id ?? null}
           onSelectTrip={handleOpenTrip}
+          onRemoveTrip={handleRemoveTrip}
           onShowHome={() => setDesktopView('home')}
           onShowNewTrip={() => setDesktopView('new')}
         >
           {renderDesktopContent()}
         </DesktopShell>
+        {renderUndoToast()}
       </>
     );
   }
@@ -232,7 +334,7 @@ export default function App(): JSX.Element {
       : mobileNav === 'settlement'
         ? selectedTrip?.name ? `${selectedTrip.name} 정산` : '정산'
         : mobileNav === 'record'
-          ? selectedTrip?.name ?? '기록'
+          ? selectedTrip?.name ? `${selectedTrip.name} 지출 내역` : '지출 내역'
           : '여행 목록';
 
   const mobileSubtitle =
@@ -260,6 +362,9 @@ export default function App(): JSX.Element {
       >
         {renderMobileContent()}
       </MobileShell>
+      {renderUndoToast()}
     </>
   );
 }
+
+

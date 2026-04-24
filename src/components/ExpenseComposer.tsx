@@ -1,15 +1,15 @@
-﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+﻿import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 
-import { SUPPORTED_CURRENCIES, getCurrencyMeta, getOrderedCurrencies } from '../constants/currencies';
+import { SUPPORTED_CURRENCIES, getCurrencyMeta } from '../constants/currencies';
 import { CurrencyCode, Expense, NewExpenseInput, Trip } from '../types';
 import { fetchAiStatus, requestCsvAutoMapping, requestOcrExtraction } from '../utils/ai';
-import { getEstimatedKrwAmount, getFinalKrwAmount } from '../utils/expenseAmount';
+import { getFinalKrwAmount, resolveEffectiveExchangeRate } from '../utils/expenseAmount';
 import { fetchLatestRateToKrw } from '../utils/exchangeRate';
 import { normalizeCsvDate, parseCsvText, parseNumberText } from '../utils/csv';
 import { clampToNonNegativeNumber, formatKrw, formatNumber2, todayIso } from '../utils/format';
+import { CurrencyPicker } from './CurrencyPicker';
 
 type InputMode = 'direct' | 'ocr' | 'csv';
-type EstimatedMode = 'rate' | 'manual';
 
 interface CsvMapping {
   place: string;
@@ -59,8 +59,12 @@ function normalizeCurrencyCode(value: string, fallback: CurrencyCode): CurrencyC
 }
 
 function toExtraMap(expense: Expense): Record<string, string> {
+  const rate = resolveEffectiveExchangeRate(expense);
+  const divisor = expense.originalCurrency === 'KRW' ? 1 : rate;
+
   return expense.extraAllocations.reduce<Record<string, string>>((acc, item) => {
-    acc[item.memberId] = String(item.amount);
+    const localAmount = divisor > 0 ? item.amount / divisor : item.amount;
+    acc[item.memberId] = String(localAmount);
     return acc;
   }, {});
 }
@@ -85,6 +89,7 @@ export function ExpenseComposer({
   onCancelEdit,
 }: ExpenseComposerProps): JSX.Element {
   const [mode, setMode] = useState<InputMode>('direct');
+  const [quickStep, setQuickStep] = useState<1 | 2 | 3>(1);
   const [payerId, setPayerId] = useState(trip.defaultPayerId);
   const [place, setPlace] = useState('');
   const [date, setDate] = useState(todayIso());
@@ -92,8 +97,6 @@ export function ExpenseComposer({
   const [amountText, setAmountText] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>(trip.defaultCurrency);
   const [rateText, setRateText] = useState(defaultRateText(trip.defaultCurrency));
-  const [estimatedMode, setEstimatedMode] = useState<EstimatedMode>('rate');
-  const [manualEstimatedText, setManualEstimatedText] = useState('');
   const [rateStatus, setRateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [rateMessage, setRateMessage] = useState<string | null>(null);
   const [participants, setParticipants] = useState<string[]>(trip.members.map((member) => member.id));
@@ -116,23 +119,30 @@ export function ExpenseComposer({
   const [csvMessage, setCsvMessage] = useState<string | null>(null);
   const [csvMissingRateCurrencies, setCsvMissingRateCurrencies] = useState<CurrencyCode[]>([]);
   const [csvRateOverrideMap, setCsvRateOverrideMap] = useState<Partial<Record<CurrencyCode, string>>>({});
-
-  const orderedCurrencies = useMemo(() => getOrderedCurrencies(trip.defaultCurrency), [trip.defaultCurrency]);
+  const [csvAutoMappingLoading, setCsvAutoMappingLoading] = useState(false);
 
   const amount = clampToNonNegativeNumber(amountText);
   const rate = clampToNonNegativeNumber(rateText);
   const effectiveRate = currency === 'KRW' ? 1 : rate;
-  const computedEstimatedKrw = amount * effectiveRate;
-  const manualEstimatedKrw = clampToNonNegativeNumber(manualEstimatedText);
+  const estimatedKrw = currency === 'KRW' ? amount : amount * effectiveRate;
 
-  const estimatedKrw =
-    currency === 'KRW' ? amount : estimatedMode === 'manual' ? manualEstimatedKrw : computedEstimatedKrw;
+  const defaultForeignCurrency: CurrencyCode = trip.defaultCurrency === 'KRW' ? 'USD' : trip.defaultCurrency;
+  const defaultForeignMeta = getCurrencyMeta(defaultForeignCurrency);
+  const currentForeignCurrency: CurrencyCode = currency === 'KRW' ? defaultForeignCurrency : currency;
+  const resolvedRateForExtra = currency === 'KRW' ? 1 : rate > 0 ? rate : amount > 0 ? estimatedKrw / amount : 0;
 
-  const extraTotal = participants.reduce((sum, memberId) => {
+  const extraTotalInput = participants.reduce((sum, memberId) => {
     return sum + clampToNonNegativeNumber(extraMap[memberId] ?? '0');
   }, 0);
 
-  const csvNeedsManualMapping = !csvMapping.place || !csvMapping.amount || !csvMapping.date;
+  const extraTotalKrw = extraTotalInput * resolvedRateForExtra;
+
+  const csvMissingRequiredMappings = [
+    csvMapping.place ? null : 'place(사용처)',
+    csvMapping.amount ? null : 'amount(금액)',
+    csvMapping.date ? null : 'date(날짜)',
+  ].filter((value): value is string => value !== null);
+  const csvNeedsManualMapping = csvMissingRequiredMappings.length > 0;
   async function refreshAiStatus(): Promise<void> {
     try {
       const status = await fetchAiStatus();
@@ -168,7 +178,7 @@ export function ExpenseComposer({
       setRateMessage(`현재 환율(1 ${targetCurrency} = KRW ${formatNumber2(latestRate)})을 적용했습니다. 예상 금액 안내용입니다.`);
     } catch {
       setRateStatus('error');
-      setRateMessage('환율 조회에 실패했습니다. 수동 환율 입력 또는 예상 원화 직접 입력으로 계속 진행하세요.');
+      setRateMessage('환율 조회에 실패했습니다. 환율을 직접 입력하거나 환율 없이 현지 화폐로 저장할 수 있습니다.');
     }
   }
   useEffect(() => {
@@ -177,11 +187,10 @@ export function ExpenseComposer({
 
   useEffect(() => {
     setMode('direct');
+    setQuickStep(1);
     setPayerId(trip.defaultPayerId);
     setCurrency(trip.defaultCurrency);
     setRateText(defaultRateText(trip.defaultCurrency));
-    setEstimatedMode('rate');
-    setManualEstimatedText('');
     setRateStatus('idle');
     setRateMessage(null);
     setParticipants(trip.members.map((member) => member.id));
@@ -203,6 +212,7 @@ export function ExpenseComposer({
     setCsvMessage(null);
     setCsvMissingRateCurrencies([]);
     setCsvRateOverrideMap({});
+    setCsvAutoMappingLoading(false);
   }, [quickMode, trip]);
 
   useEffect(() => {
@@ -210,9 +220,8 @@ export function ExpenseComposer({
       return;
     }
 
-    const estimatedFromExpense = getEstimatedKrwAmount(editingExpense);
-
     setMode('direct');
+    setQuickStep(1);
     setPayerId(editingExpense.payerId);
     setPlace(editingExpense.place);
     setDate(editingExpense.date);
@@ -220,8 +229,6 @@ export function ExpenseComposer({
     setAmountText(String(editingExpense.originalAmount));
     setCurrency(editingExpense.originalCurrency);
     setRateText(editingExpense.exchangeRate ? String(editingExpense.exchangeRate) : defaultRateText(editingExpense.originalCurrency));
-    setEstimatedMode('rate');
-    setManualEstimatedText(String(estimatedFromExpense));
     setParticipants([...editingExpense.participants]);
     setExtraMap(toExtraMap(editingExpense));
     setShowAdvanced(true);
@@ -259,14 +266,13 @@ export function ExpenseComposer({
   }
 
   function resetDirectFields(): void {
+    setQuickStep(1);
     setPlace('');
     setAmountText('');
     setDate(todayIso());
     setPaymentMethod('');
     setCurrency(trip.defaultCurrency);
     setRateText(defaultRateText(trip.defaultCurrency));
-    setEstimatedMode('rate');
-    setManualEstimatedText('');
     setRateStatus('idle');
     setRateMessage(null);
     setPayerId(trip.defaultPayerId);
@@ -278,8 +284,132 @@ export function ExpenseComposer({
     }
   }
 
+  function validateQuickStep1(): boolean {
+    if (!place.trim()) {
+      setError('사용처를 입력해주세요.');
+      return false;
+    }
+
+    if (!date) {
+      setError('날짜를 입력해주세요.');
+      return false;
+    }
+
+    if (amount <= 0) {
+      setError('금액은 0보다 커야 합니다.');
+      return false;
+    }
+
+
+    setError(null);
+    return true;
+  }
+
+  function moveQuickStepNext(): void {
+    if (!quickMode) {
+      return;
+    }
+
+    if (quickStep === 1) {
+      if (!validateQuickStep1()) {
+        return;
+      }
+      setQuickStep(2);
+      return;
+    }
+
+    if (quickStep === 2) {
+      if (!payerId) {
+        setError('결제자를 선택해주세요.');
+        return;
+      }
+      setError(null);
+      setQuickStep(3);
+    }
+  }
+
+  function moveQuickStepPrev(): void {
+    if (!quickMode) {
+      return;
+    }
+
+    if (quickStep === 2) {
+      setQuickStep(1);
+      setError(null);
+      return;
+    }
+
+    if (quickStep === 3) {
+      setQuickStep(2);
+      setError(null);
+    }
+  }
+
+  function handleCurrencyChange(nextCurrency: CurrencyCode): void {
+    setCurrency(nextCurrency);
+    setError(null);
+  }
+
+  function renderCurrencySelector(label = '통화'): JSX.Element {
+    const selectedMeta = getCurrencyMeta(currentForeignCurrency);
+
+    return (
+      <div className="field">
+        <span>{label}</span>
+        <div className="foreign-currency-row">
+          <button
+            type="button"
+            className={`foreign-currency-default-btn ${currency === defaultForeignCurrency ? 'foreign-currency-default-btn-active' : ''}`}
+            onClick={() => handleCurrencyChange(defaultForeignCurrency)}
+          >
+            <span className="foreign-currency-default-badge">기본 외화</span>
+            <span className="foreign-currency-default-main">
+              <span className="currency-option-flag" aria-hidden="true">
+                {defaultForeignMeta.flag}
+              </span>
+              <span className="foreign-currency-default-text">
+                <strong>{defaultForeignMeta.name}</strong>
+                <span>
+                  {defaultForeignMeta.code} · {defaultForeignMeta.symbol}
+                </span>
+              </span>
+            </span>
+          </button>
+
+          <CurrencyPicker
+            value={currentForeignCurrency}
+            onChange={handleCurrencyChange}
+            includeKrw={false}
+            grouped={false}
+            modalTitle="다른 외화 선택"
+            triggerVariant="guide"
+            triggerLabel="다른 외화 고르기"
+            triggerHint={`현재: ${selectedMeta.name}`}
+          />
+        </div>
+
+        <div className="foreign-currency-footer">
+          <button
+            type="button"
+            className={`text-btn foreign-currency-krw-btn ${currency === 'KRW' ? 'foreign-currency-krw-btn-active' : ''}`}
+            onClick={() => handleCurrencyChange('KRW')}
+          >
+            원화(KRW)로 입력
+          </button>
+          <p className="hint-text">
+            {currency === 'KRW' ? '현재 원화 입력 모드입니다.' : `현재 선택: ${getCurrencyMeta(currency).name} (${currency})`}
+          </p>
+        </div>
+      </div>
+    );
+  }
   function submitExpense(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
+
+    if (quickMode && quickStep < 3) {
+      moveQuickStepNext();
+      return;
+    }
 
     if (!place.trim()) {
       setError('사용처를 입력해주세요.');
@@ -301,17 +431,12 @@ export function ExpenseComposer({
       return;
     }
 
-    if (currency !== 'KRW' && estimatedMode === 'rate' && rate <= 0) {
-      setError('외화 결제는 환율이 필요합니다.');
+    if (currency !== 'KRW' && extraTotalInput > 0 && resolvedRateForExtra <= 0) {
+      setError('추가 부담금을 반영하려면 환율을 입력해주세요. 환율 없이 저장하려면 추가 부담금을 0으로 두세요.');
       return;
     }
 
-    if (currency !== 'KRW' && estimatedMode === 'manual' && manualEstimatedKrw <= 0) {
-      setError('예상 원화 금액을 직접 입력해주세요.');
-      return;
-    }
-
-    if (extraTotal > estimatedKrw) {
+    if (extraTotalKrw > estimatedKrw) {
       setError('추가 할당 합계가 총 금액보다 클 수 없습니다.');
       return;
     }
@@ -319,12 +444,11 @@ export function ExpenseComposer({
     const extraAllocations = participants
       .map((memberId) => ({
         memberId,
-        amount: clampToNonNegativeNumber(extraMap[memberId] ?? '0'),
+        amount: clampToNonNegativeNumber(extraMap[memberId] ?? '0') * resolvedRateForExtra,
       }))
       .filter((item) => item.amount > 0);
 
-    const resolvedRate =
-      currency === 'KRW' ? undefined : rate > 0 ? rate : amount > 0 ? estimatedKrw / amount : undefined;
+    const resolvedRate = currency === 'KRW' ? undefined : rate > 0 ? rate : undefined;
 
     const payload: NewExpenseInput = {
       tripId: trip.id,
@@ -405,6 +529,59 @@ export function ExpenseComposer({
     setOcrMessage('OCR 결과를 직접 입력 폼에 반영했습니다. 필요한 값만 수정 후 저장하세요.');
   }
 
+  async function applyCsvAutoMapping(headers: string[], dataRows: string[][], fallback: CsvMapping): Promise<CsvMapping> {
+    if (!aiReady) {
+      if (!fallback.place || !fallback.amount || !fallback.date) {
+        setCsvMessage('자동 매핑이 불완전합니다. 아래에서 컬럼을 수동 지정해주세요.');
+      } else {
+        setCsvMessage('자동 매핑을 제안했습니다. 필요 시 수정 후 가져오세요.');
+      }
+      return fallback;
+    }
+
+    setCsvAutoMappingLoading(true);
+
+    try {
+      const aiMapping = await requestCsvAutoMapping(headers, dataRows.slice(0, 3));
+
+      const mergedMapping: CsvMapping = {
+        place: headers.includes(aiMapping.place) ? aiMapping.place : fallback.place,
+        amount: headers.includes(aiMapping.amount) ? aiMapping.amount : fallback.amount,
+        date: headers.includes(aiMapping.date) ? aiMapping.date : fallback.date,
+        currency: aiMapping.currency && headers.includes(aiMapping.currency) ? aiMapping.currency : fallback.currency,
+      };
+
+      if (!mergedMapping.place || !mergedMapping.amount || !mergedMapping.date) {
+        setCsvMessage('AI 매핑 결과가 일부 비어 있습니다. 누락 컬럼을 수동으로 지정해주세요.');
+      } else {
+        setCsvMessage('AI 자동 매핑을 적용했습니다. 필요 시 수정 후 가져오세요.');
+      }
+
+      return mergedMapping;
+    } catch {
+      if (!fallback.place || !fallback.amount || !fallback.date) {
+        setCsvMessage('AI 매핑 실패 + 기본 매핑 불완전입니다. 아래에서 수동 지정해주세요.');
+      } else {
+        setCsvMessage('AI 매핑은 실패했지만 기본 자동 매핑을 적용했습니다. 수동 수정 후 계속 진행할 수 있습니다.');
+      }
+
+      return fallback;
+    } finally {
+      setCsvAutoMappingLoading(false);
+    }
+  }
+
+  async function retryCsvAutoMapping(): Promise<void> {
+    if (csvHeaders.length === 0 || csvRows.length === 0) {
+      setCsvMessage('먼저 CSV 파일을 불러와주세요.');
+      return;
+    }
+
+    const fallback = suggestCsvMapping(csvHeaders);
+    const merged = await applyCsvAutoMapping(csvHeaders, csvRows, fallback);
+    setCsvMapping(merged);
+  }
+
   async function parseCsvFile(file: File): Promise<void> {
     try {
       const text = await file.text();
@@ -420,48 +597,24 @@ export function ExpenseComposer({
       const headers = rows[0].map((header) => header.trim());
       const dataRows = rows.slice(1).filter((row) => row.some((cell) => cell.trim().length > 0));
       const fallback = suggestCsvMapping(headers);
-      let mergedMapping = fallback;
-
-      if (aiReady) {
-        try {
-          const aiMapping = await requestCsvAutoMapping(headers, dataRows.slice(0, 3));
-
-          mergedMapping = {
-            place: headers.includes(aiMapping.place) ? aiMapping.place : fallback.place,
-            amount: headers.includes(aiMapping.amount) ? aiMapping.amount : fallback.amount,
-            date: headers.includes(aiMapping.date) ? aiMapping.date : fallback.date,
-            currency: aiMapping.currency && headers.includes(aiMapping.currency) ? aiMapping.currency : fallback.currency,
-          };
-
-          setCsvMessage('AI 자동 매핑을 적용했습니다. 필요 시 수정 후 가져오세요.');
-        } catch {
-          if (!fallback.place || !fallback.amount || !fallback.date) {
-            setCsvMessage('AI 매핑 실패 + 기본 매핑 불완전입니다. 아래에서 수동 지정해주세요.');
-          } else {
-            setCsvMessage('AI 매핑은 실패했지만 기본 자동 매핑을 적용했습니다.');
-          }
-        }
-      } else if (!fallback.place || !fallback.amount || !fallback.date) {
-        setCsvMessage('자동 매핑이 불완전합니다. 아래에서 컬럼을 수동 지정해주세요.');
-      } else {
-        setCsvMessage('자동 매핑을 제안했습니다. 필요 시 수정 후 가져오세요.');
-      }
+      const mergedMapping = await applyCsvAutoMapping(headers, dataRows, fallback);
 
       setCsvHeaders(headers);
       setCsvRows(dataRows);
       setCsvMapping(mergedMapping);
       setCsvMissingRateCurrencies([]);
       setCsvRateOverrideMap({});
+      setCsvAutoMappingLoading(false);
     } catch {
       setCsvHeaders([]);
       setCsvRows([]);
       setCsvMapping(initialCsvMapping());
       setCsvMissingRateCurrencies([]);
       setCsvRateOverrideMap({});
+      setCsvAutoMappingLoading(false);
       setCsvMessage('파일을 읽지 못했습니다. CSV 형식을 확인해주세요.');
     }
   }
-
   function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>): void {
     const file = event.target.files?.[0];
     setCsvFileName(file?.name ?? '');
@@ -473,6 +626,7 @@ export function ExpenseComposer({
       setCsvMessage(null);
       setCsvMissingRateCurrencies([]);
       setCsvRateOverrideMap({});
+      setCsvAutoMappingLoading(false);
       return;
     }
 
@@ -482,6 +636,7 @@ export function ExpenseComposer({
       setCsvMapping(initialCsvMapping());
       setCsvMissingRateCurrencies([]);
       setCsvRateOverrideMap({});
+      setCsvAutoMappingLoading(false);
       setCsvMessage('현재 단계에서는 CSV 파일(.csv) 수동 매핑을 우선 지원합니다.');
       return;
     }
@@ -527,7 +682,7 @@ export function ExpenseComposer({
     }
 
     if (csvNeedsManualMapping) {
-      setCsvMessage('필수 컬럼 매핑(place, amount, date)을 먼저 지정해주세요.');
+      setCsvMessage(`필수 컬럼 매핑 누락: ${csvMissingRequiredMappings.join(', ')}. 먼저 지정해주세요.`);
       return;
     }
 
@@ -640,20 +795,20 @@ export function ExpenseComposer({
           className={`tab-btn ${mode === 'ocr' ? 'tab-btn-active' : ''}`}
           onClick={() => setMode('ocr')}
         >
-          OCR(선택)
+          영수증 사진
         </button>
         <button
           type="button"
           className={`tab-btn ${mode === 'csv' ? 'tab-btn-active' : ''}`}
           onClick={() => setMode('csv')}
         >
-          CSV 업로드
+          매출전표 등록
         </button>
       </div>
 
       {mode === 'ocr' ? (
         <div className="prototype-pane">
-          <p>OCR은 선택형 보조 기능입니다. AI 연결이 없으면 직접 입력으로 이어갈 수 있습니다.</p>
+          <p>영수증 사진 촬영은 보조기능입니다. AI 연결이 없으면 사용이 불가능합니다.</p>
           <p className={aiReady ? 'hint-text' : 'error-text'}>{aiStatusMessage}</p>
           <div className="inline-fields">
             <label className="field">
@@ -715,7 +870,7 @@ export function ExpenseComposer({
 
       {mode === 'csv' ? (
         <div className="prototype-pane">
-          <p>CSV 업로드는 AI 없이도 동작합니다. AI 매핑 실패 시 수동 매핑으로 계속 진행할 수 있습니다.</p>
+          <p>매출전표 등록은 AI 없이 등록 시 수동으로 진행합니다.</p>
           <p className={aiReady ? 'hint-text' : 'error-text'}>{aiStatusMessage}</p>
           <label className="field">
             <span>CSV 파일</span>
@@ -804,6 +959,17 @@ export function ExpenseComposer({
                 </label>
               </div>
 
+              {aiReady ? (
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => void retryCsvAutoMapping()}
+                  disabled={csvAutoMappingLoading}
+                >
+                  {csvAutoMappingLoading ? 'AI 매핑 재시도 중...' : 'AI 자동 매핑 다시 시도'}
+                </button>
+              ) : null}
+
               <div className="panel-muted">
                 <strong>미리보기</strong>
                 <p>{csvRows.length}개 행 중 상위 3개 행을 확인합니다.</p>
@@ -819,7 +985,7 @@ export function ExpenseComposer({
               </div>
 
               {csvNeedsManualMapping ? (
-                <p className="error-text">필수 컬럼이 모두 선택되어야 가져오기를 실행할 수 있습니다.</p>
+                <p className="error-text">필수 컬럼 매핑 누락: {csvMissingRequiredMappings.join(', ')}</p>
               ) : null}
 
               {csvMissingRateCurrencies.length > 0 ? (
@@ -850,209 +1016,380 @@ export function ExpenseComposer({
 
       {mode === 'direct' ? (
         <form className="form-grid" onSubmit={submitExpense}>
-          {quickMode ? <p className="hint-text">모바일 기록에 맞춰 필수 입력을 먼저 배치했습니다.</p> : null}
-
-          <div className="inline-fields">
-            <label className="field">
-              <span>사용처</span>
-              <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시" />
-            </label>
-            <label className="field">
-              <span>날짜</span>
-              <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-            </label>
-          </div>
-
-          <label className="field">
-            <span>결제수단 (선택)</span>
-            <input
-              value={paymentMethod}
-              onChange={(event) => setPaymentMethod(event.target.value)}
-              placeholder="예: 트래블카드, 현금"
-            />
-          </label>
-
-          <label className="field">
-            <span>금액</span>
-            <div className="amount-input-wrap">
-              <b>{getCurrencyMeta(currency).symbol}</b>
-              <input
-                value={amountText}
-                onChange={(event) => setAmountText(event.target.value)}
-                inputMode="decimal"
-                placeholder="0"
-              />
-            </div>
-          </label>
-
-          <div className="field">
-            <span>통화 선택</span>
-            <div className="chip-scroll">
-              {orderedCurrencies.map((item) => (
-                <button
-                  key={item.code}
-                  type="button"
-                  className={`chip ${currency === item.code ? 'chip-active' : ''}`}
-                  onClick={() => setCurrency(item.code)}
-                >
-                  {item.code}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {currency !== 'KRW' ? (
-            <>
-              <div className="field">
-                <span>예상 원화 계산 방식</span>
-                <div className="tab-row">
-                  <button
-                    type="button"
-                    className={`tab-btn ${estimatedMode === 'rate' ? 'tab-btn-active' : ''}`}
-                    onClick={() => setEstimatedMode('rate')}
-                  >
-                    환율 계산
-                  </button>
-                  <button
-                    type="button"
-                    className={`tab-btn ${estimatedMode === 'manual' ? 'tab-btn-active' : ''}`}
-                    onClick={() => setEstimatedMode('manual')}
-                  >
-                    원화 직접 입력
-                  </button>
+          {quickMode ? (
+            <div className="quick-step-shell">
+              <div className="quick-step-head">
+                <div className="quick-step-head-main">
+                  <strong>지출 추가</strong>
+                  <span>Step {quickStep}/3</span>
+                </div>
+                <div className="quick-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={quickStep}>
+                  {[1, 2, 3].map((step) => (
+                    <span
+                      key={`quick-step-indicator-${step}`}
+                      className={`quick-step-dot ${quickStep >= step ? 'quick-step-dot-active' : ''}`}
+                    />
+                  ))}
                 </div>
               </div>
 
-              {estimatedMode === 'rate' ? (
-                <>
+              {quickStep === 1 ? (
+                <div className="quick-step-section">
+                  <div className="inline-fields">
+                    <label className="field">
+                      <span>사용처</span>
+                      <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시" />
+                    </label>
+                    <label className="field">
+                      <span>날짜</span>
+                      <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                    </label>
+                  </div>
+
                   <label className="field">
-                    <span>환율 (1 {currency} = KRW)</span>
+                    <span>결제수단 (선택)</span>
                     <input
-                      value={rateText}
-                      onChange={(event) => setRateText(event.target.value)}
-                      inputMode="decimal"
-                      placeholder="환율 입력"
+                      value={paymentMethod}
+                      onChange={(event) => setPaymentMethod(event.target.value)}
+                      placeholder="예: 트래블카드, 현금"
                     />
                   </label>
-                  <div className="actions-row">
-                    <button type="button" className="secondary-btn" onClick={() => void loadLatestRate(currency)}>
-                      무료 환율 다시 조회
+
+                  {renderCurrencySelector()}
+
+
+                  <label className="field">
+                    <span>금액</span>
+                    <div className="amount-input-wrap">
+                      <b>{getCurrencyMeta(currency).symbol}</b>
+                      <input
+                        value={amountText}
+                        onChange={(event) => setAmountText(event.target.value)}
+                        inputMode="decimal"
+                        placeholder="0"
+                      />
+                    </div>
+                  </label>
+
+                  {currency !== 'KRW' ? (
+                    <>
+                      <div className="quick-rate-row">
+                        <label className="field">
+                          <span>환율 (1 {currency} = KRW)</span>
+                          <input
+                            value={rateText}
+                            onChange={(event) => setRateText(event.target.value)}
+                            inputMode="decimal"
+                            placeholder="환율 입력"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="secondary-btn refresh-rate-btn"
+                          onClick={() => void loadLatestRate(currency)}
+                          aria-label="무료 환율 새로고침"
+                          title="무료 환율 새로고침"
+                        >
+                          ⟳
+                        </button>
+                      </div>
+
+                      {rateMessage ? <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p> : null}
+
+                      <p className="hint-text">
+                        ≈ {formatKrw(estimatedKrw)} (환율 {rate > 0 ? formatNumber2(rate) : '-'} 적용 · 미입력 시 0원)
+                      </p>
+                    </>
+                  ) : (
+                    <p className="hint-text">원화 입력값이 정산 기준 금액으로 사용됩니다.</p>
+                  )}
+                </div>
+              ) : null}
+
+              {quickStep === 2 ? (
+                <div className="quick-step-section">
+                  <div className="field">
+                    <span>결제자</span>
+                    <p className="hint-text">누가 실제로 결제했나요?</p>
+                    <div className="chip-scroll">
+                      {trip.members.map((member) => (
+                        <button
+                          key={member.id}
+                          type="button"
+                          className={`chip ${payerId === member.id ? 'chip-active' : ''}`}
+                          onClick={() => {
+                            setPayerId(member.id);
+                            setError(null);
+                          }}
+                        >
+                          {member.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {quickStep === 3 ? (
+                <div className="quick-step-section">
+                  <div className="field">
+                    <span>참여 인원</span>
+                    <p className="hint-text">누가 함께 사용한 금액인가요?</p>
+                    <div className="chip-scroll">
+                      {trip.members.map((member) => (
+                        <button
+                          key={member.id}
+                          type="button"
+                          className={`chip ${participants.includes(member.id) ? 'chip-active' : ''}`}
+                          onClick={() => toggleParticipant(member.id)}
+                        >
+                          {member.name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="quick-step-inline-actions">
+                      <button
+                        type="button"
+                        className="text-btn"
+                        onClick={() => {
+                          setParticipants(trip.members.map((member) => member.id));
+                          setError(null);
+                        }}
+                      >
+                        전체 선택
+                      </button>
+                      <button type="button" className="text-btn" onClick={() => setParticipants([])}>
+                        전체 해제
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <span>추가 부담금 (선택)</span>
+                    <div className="extra-grid">
+                      {trip.members
+                        .filter((member) => participants.includes(member.id))
+                        .map((member) => (
+                          <label key={member.id} className="field">
+                            <span>{member.name}</span>
+                            <input
+                              value={extraMap[member.id] ?? ''}
+                              onChange={(event) => handleExtraChange(member.id, event.target.value)}
+                              placeholder="0"
+                              inputMode="decimal"
+                            />
+                          </label>
+                        ))}
+                    </div>
+                    <p className="hint-text">
+                      추가 부담금 합계: {currency} {formatNumber2(extraTotalInput)}
+                      {currency !== 'KRW' ? ` (≈ ${formatKrw(extraTotalKrw)})` : ''}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {error ? <p className="error-text">{error}</p> : null}
+
+              <div className="quick-step-nav">
+                <div className="quick-step-nav-left">
+                  {editingExpense ? (
+                    <button type="button" className="secondary-btn" onClick={onCancelEdit}>
+                      수정 취소
+                    </button>
+                  ) : null}
+
+                  {quickStep > 1 ? (
+                    <button type="button" className="secondary-btn" onClick={moveQuickStepPrev}>
+                      ← 이전
+                    </button>
+                  ) : (
+                    <button type="button" className="secondary-btn" onClick={resetDirectFields}>
+                      초기화
+                    </button>
+                  )}
+                </div>
+
+                {quickStep < 3 ? (
+                  <button type="button" className="primary-btn" onClick={moveQuickStepNext}>
+                    다음 →
+                  </button>
+                ) : (
+                  <button type="submit" className="primary-btn">
+                    {editingExpense ? '지출 수정 저장' : '저장'}
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="inline-fields">
+                <label className="field">
+                  <span>사용처</span>
+                  <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시" />
+                </label>
+                <label className="field">
+                  <span>날짜</span>
+                  <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                </label>
+              </div>
+
+              <label className="field">
+                <span>결제수단 (선택)</span>
+                <input
+                  value={paymentMethod}
+                  onChange={(event) => setPaymentMethod(event.target.value)}
+                  placeholder="예: 트래블카드, 현금"
+                />
+              </label>
+
+              <label className="field">
+                <span>금액</span>
+                <div className="amount-input-wrap">
+                  <b>{getCurrencyMeta(currency).symbol}</b>
+                  <input
+                    value={amountText}
+                    onChange={(event) => setAmountText(event.target.value)}
+                    inputMode="decimal"
+                    placeholder="0"
+                  />
+                </div>
+              </label>
+
+              {renderCurrencySelector('통화 선택')}
+
+
+              {currency !== 'KRW' ? (
+                <>
+                  <div className="quick-rate-row">
+                    <label className="field">
+                      <span>환율 (1 {currency} = KRW)</span>
+                      <input
+                        value={rateText}
+                        onChange={(event) => setRateText(event.target.value)}
+                        inputMode="decimal"
+                        placeholder="환율 입력"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary-btn refresh-rate-btn"
+                      onClick={() => void loadLatestRate(currency)}
+                      aria-label="무료 환율 새로고침"
+                      title="무료 환율 새로고침"
+                    >
+                      ⟳
                     </button>
                   </div>
                   {rateMessage ? (
                     <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p>
                   ) : null}
+                  <div className="panel-muted">
+                    <strong>예상 원화 금액 (참고)</strong>
+                    <p>~ {formatKrw(estimatedKrw)}</p>
+                    {rate <= 0 ? <p className="hint-text">환율 미입력 시 예상 원화는 0원으로 저장됩니다.</p> : null}
+                    {editingExpense && getFinalKrwAmount(editingExpense) !== null ? (
+                      <p className="hint-text">현재 실제 확정 금액: {formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
+                    ) : null}
+                  </div>
                 </>
-              ) : (
-                <label className="field">
-                  <span>예상 원화 금액 (직접 입력)</span>
-                  <input
-                    value={manualEstimatedText}
-                    onChange={(event) => setManualEstimatedText(event.target.value)}
-                    inputMode="decimal"
-                    placeholder="예: 28140"
-                  />
-                </label>
-              )}
-            </>
-          ) : null}
+              ) : null}
 
-          <div className="panel-muted">
-            <strong>
-              예상 원화 금액
-              {currency === 'KRW'
-                ? ' (원화 입력값)'
-                : estimatedMode === 'manual'
-                  ? ' (직접 입력)'
-                  : ' (환율 계산)'}
-            </strong>
-            <p>~ {formatKrw(estimatedKrw)}</p>
-            {editingExpense && getFinalKrwAmount(editingExpense) !== null ? (
-              <p className="hint-text">현재 실제 확정 금액: {formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
-            ) : null}
-          </div>
-
-          <button type="button" className="secondary-btn" onClick={() => setShowAdvanced((prev) => !prev)}>
-            {showAdvanced ? '고급 설정 접기' : '결제자/참여자/추가할당 설정'}
-          </button>
-
-          {showAdvanced ? (
-            <>
-              <div className="field">
-                <span>결제자</span>
-                <div className="chip-scroll">
-                  {trip.members.map((member) => (
-                    <button
-                      key={member.id}
-                      type="button"
-                      className={`chip ${payerId === member.id ? 'chip-active' : ''}`}
-                      onClick={() => setPayerId(member.id)}
-                    >
-                      {member.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="field">
-                <span>참여 인원</span>
-                <div className="chip-scroll">
-                  {trip.members.map((member) => (
-                    <button
-                      key={member.id}
-                      type="button"
-                      className={`chip ${participants.includes(member.id) ? 'chip-active' : ''}`}
-                      onClick={() => toggleParticipant(member.id)}
-                    >
-                      {member.name}
-                    </button>
-                  ))}
-                </div>
-                <p className="hint-text">한 명 이상은 반드시 선택되어야 합니다.</p>
-              </div>
-
-              <div className="field">
-                <span>추가 할당 (선택)</span>
-                <div className="extra-grid">
-                  {trip.members
-                    .filter((member) => participants.includes(member.id))
-                    .map((member) => (
-                      <label key={member.id} className="field">
-                        <span>{member.name}</span>
-                        <input
-                          value={extraMap[member.id] ?? ''}
-                          onChange={(event) => handleExtraChange(member.id, event.target.value)}
-                          placeholder="0"
-                          inputMode="decimal"
-                        />
-                      </label>
-                    ))}
-                </div>
-                <p className="hint-text">추가 할당 합계: {formatKrw(extraTotal)}</p>
-              </div>
-            </>
-          ) : null}
-
-          {error ? <p className="error-text">{error}</p> : null}
-
-          <div className="actions-row">
-            {editingExpense ? (
-              <button type="button" className="secondary-btn" onClick={onCancelEdit}>
-                수정 취소
+              <button type="button" className="secondary-btn" onClick={() => setShowAdvanced((prev) => !prev)}>
+                {showAdvanced ? '고급 설정 접기' : '결제자/참여자/추가 부담금 설정'}
               </button>
-            ) : null}
-            <button type="button" className="secondary-btn" onClick={resetDirectFields}>
-              초기화
-            </button>
-            <button type="submit" className="primary-btn">
-              {editingExpense ? '지출 수정 저장' : '지출 저장'}
-            </button>
-          </div>
+
+              {showAdvanced ? (
+                <>
+                  <div className="field">
+                    <span>결제자</span>
+                    <div className="chip-scroll">
+                      {trip.members.map((member) => (
+                        <button
+                          key={member.id}
+                          type="button"
+                          className={`chip ${payerId === member.id ? 'chip-active' : ''}`}
+                          onClick={() => setPayerId(member.id)}
+                        >
+                          {member.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <span>참여 인원</span>
+                    <div className="chip-scroll">
+                      {trip.members.map((member) => (
+                        <button
+                          key={member.id}
+                          type="button"
+                          className={`chip ${participants.includes(member.id) ? 'chip-active' : ''}`}
+                          onClick={() => toggleParticipant(member.id)}
+                        >
+                          {member.name}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="hint-text">한 명 이상은 반드시 선택되어야 합니다.</p>
+                  </div>
+
+                  <div className="field">
+                    <span>추가 부담금 (선택)</span>
+                    <div className="extra-grid">
+                      {trip.members
+                        .filter((member) => participants.includes(member.id))
+                        .map((member) => (
+                          <label key={member.id} className="field">
+                            <span>{member.name}</span>
+                            <input
+                              value={extraMap[member.id] ?? ''}
+                              onChange={(event) => handleExtraChange(member.id, event.target.value)}
+                              placeholder="0"
+                              inputMode="decimal"
+                            />
+                          </label>
+                        ))}
+                    </div>
+                    <p className="hint-text">
+                      추가 부담금 합계: {currency} {formatNumber2(extraTotalInput)}
+                      {currency !== 'KRW' ? ` (≈ ${formatKrw(extraTotalKrw)})` : ''}
+                    </p>
+                  </div>
+                </>
+              ) : null}
+
+              {error ? <p className="error-text">{error}</p> : null}
+
+              <div className="actions-row">
+                {editingExpense ? (
+                  <button type="button" className="secondary-btn" onClick={onCancelEdit}>
+                    수정 취소
+                  </button>
+                ) : null}
+                <button type="button" className="secondary-btn" onClick={resetDirectFields}>
+                  초기화
+                </button>
+                <button type="submit" className="primary-btn">
+                  {editingExpense ? '지출 수정 저장' : '지출 저장'}
+                </button>
+              </div>
+            </>
+          )}
         </form>
       ) : null}
     </section>
   );
 }
+
+
+
+
+
+
+
+
+
 
 
 

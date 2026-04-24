@@ -1,4 +1,4 @@
-Ôªøimport { ReactNode } from 'react';
+import { ReactNode } from 'react';
 
 type MobileNav = 'home' | 'record' | 'settlement' | 'new';
 
@@ -28,30 +28,30 @@ export function MobileShell({
   return (
     <main className="mobile-shell">
       <header className="mobile-header">
-        <div className="mobile-header-top">
+        <div className={`mobile-header-top ${canBack ? '' : 'mobile-header-top-no-back'}`}>
           {canBack ? (
-            <button type="button" className="icon-btn" onClick={onBack} aria-label="Îí§Î°ú Í∞ÄÍ∏∞">
-              ‚Üê
+            <button type="button" className="icon-btn" onClick={onBack} aria-label="µ⁄∑Œ ∞°±‚">
+              °Á
             </button>
-          ) : (
-            <span className="icon-btn-placeholder" aria-hidden="true" />
-          )}
-          <div>
-            <strong>{title}</strong>
-            {subtitle ? <p>{subtitle}</p> : null}
+          ) : null}
+          <div className="mobile-title-block">
+            <div>
+              <strong>{title}</strong>
+              {subtitle ? <p>{subtitle}</p> : null}
+            </div>
           </div>
         </div>
       </header>
 
       <section className="mobile-content">{children}</section>
 
-      <nav className="mobile-bottom-nav" aria-label="Î™®Î∞îÏùº ÎÇ¥ÎπÑÍ≤åÏù¥ÏÖò">
+      <nav className="mobile-bottom-nav" aria-label="∏πŸ¿œ ≥ª∫Ò∞‘¿Ãº«">
         <button
           type="button"
           className={`mobile-nav-btn ${activeNav === 'home' || activeNav === 'new' ? 'mobile-nav-btn-active' : ''}`}
           onClick={() => onChangeNav('home')}
         >
-          Î™©Î°ù
+          ∏Ò∑œ
         </button>
         <button
           type="button"
@@ -59,7 +59,7 @@ export function MobileShell({
           onClick={() => onChangeNav('record')}
           disabled={!canOpenRecord}
         >
-          Í∏∞Î°ù
+          ¡ˆ√‚ ≥ªø™
         </button>
         <button
           type="button"
@@ -67,7 +67,7 @@ export function MobileShell({
           onClick={() => onChangeNav('settlement')}
           disabled={!canOpenSettlement}
         >
-          Ï†ïÏÇ∞
+          ¡§ªÍ
         </button>
       </nav>
     </main>

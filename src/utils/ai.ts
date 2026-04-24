@@ -31,16 +31,16 @@ interface ApiResponse {
   message?: string;
   model?: string;
   ok: boolean;
-  results?: OcrExtractionResult[];
+  results?: unknown;
   status?: AiStatus;
 }
 
 interface CsvMapResponse extends ApiResponse {
-  mapping?: CsvAutoMapping;
+  mapping?: unknown;
 }
 
 interface OcrResponse extends ApiResponse {
-  results?: OcrExtractionResult[];
+  results?: unknown;
 }
 
 function normalizeBaseUrl(value: string | undefined): string | null {
@@ -65,6 +65,85 @@ function asErrorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toStringOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function toStringOrNull(value: unknown): string | null {
+  const text = toStringOrEmpty(value);
+  return text.length > 0 ? text : null;
+}
+
+function toNumberOrNull(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.replace(/[^0-9.-]/g, '');
+    if (!normalized) {
+      return null;
+    }
+
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function normalizeCsvAutoMapping(raw: unknown): CsvAutoMapping {
+  if (!isRecord(raw)) {
+    return {
+      place: '',
+      amount: '',
+      date: '',
+      currency: null,
+    };
+  }
+
+  return {
+    place: toStringOrEmpty(raw.place),
+    amount: toStringOrEmpty(raw.amount),
+    date: toStringOrEmpty(raw.date),
+    currency: toStringOrNull(raw.currency),
+  };
+}
+
+function normalizeOcrResult(raw: unknown): OcrExtractionResult {
+  if (!isRecord(raw)) {
+    return {
+      place: null,
+      amount: null,
+      currency: null,
+      date: null,
+      rawText: '',
+    };
+  }
+
+  return {
+    place: toStringOrNull(raw.place),
+    amount: toNumberOrNull(raw.amount),
+    currency: toStringOrNull(raw.currency),
+    date: toStringOrNull(raw.date),
+    rawText: toStringOrEmpty(raw.rawText),
+  };
+}
+
+function normalizeOcrResults(raw: unknown): OcrExtractionResult[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.map((item) => normalizeOcrResult(item));
 }
 
 async function readAsDataUrl(file: File): Promise<string> {
@@ -172,11 +251,11 @@ export async function requestCsvAutoMapping(headers: string[], sampleRows: strin
     method: 'POST',
   });
 
-  if (!payload.ok || !payload.mapping) {
+  if (!payload.ok) {
     throw new Error(payload.message || payload.error || 'csv_map_failed');
   }
 
-  return payload.mapping;
+  return normalizeCsvAutoMapping(payload.mapping);
 }
 
 export async function requestOcrExtraction(files: File[]): Promise<OcrExtractionResult[]> {
@@ -192,9 +271,10 @@ export async function requestOcrExtraction(files: File[]): Promise<OcrExtraction
     method: 'POST',
   });
 
-  if (!payload.ok || !Array.isArray(payload.results)) {
+  if (!payload.ok) {
     throw new Error(payload.message || payload.error || 'ocr_failed');
   }
 
-  return payload.results;
+  return normalizeOcrResults(payload.results);
 }
+

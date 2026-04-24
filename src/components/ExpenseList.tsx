@@ -1,5 +1,5 @@
 ﻿import { Expense, Member } from '../types';
-import { getEstimatedKrwAmount, getFinalKrwAmount } from '../utils/expenseAmount';
+import { convertKrwToOriginalAmount, getEstimatedKrwAmount, getFinalKrwAmount } from '../utils/expenseAmount';
 import { formatKrw, formatNumber2 } from '../utils/format';
 
 interface ExpenseListProps {
@@ -8,6 +8,15 @@ interface ExpenseListProps {
   editingExpenseId: string | null;
   onEdit: (expenseId: string) => void;
   onRemove: (expenseId: string) => void;
+}
+
+function formatExtraAllocation(expense: Expense, amountKrw: number): string {
+  const originalAmount = convertKrwToOriginalAmount(expense, amountKrw);
+  if (originalAmount === null || expense.originalCurrency === 'KRW') {
+    return formatKrw(amountKrw);
+  }
+
+  return `${expense.originalCurrency} ${formatNumber2(originalAmount)}`;
 }
 
 export function ExpenseList({
@@ -23,7 +32,7 @@ export function ExpenseList({
     return (
       <section className="panel empty-state">
         <h3>등록된 지출이 없습니다</h3>
-        <p>직접 입력 또는 CSV 업로드로 지출을 기록해보세요.</p>
+        <p>직접 입력 또는 매출전표 등록으로 지출을 기록해보세요.</p>
       </section>
     );
   }
@@ -75,9 +84,9 @@ export function ExpenseList({
                 <p>참여자: {participantNames}</p>
                 {expense.extraAllocations.length > 0 ? (
                   <p>
-                    추가할당:{' '}
+                    추가 부담금:{' '}
                     {expense.extraAllocations
-                      .map((item) => `${memberMap.get(item.memberId) ?? item.memberId} ${formatKrw(item.amount)}`)
+                      .map((item) => `${memberMap.get(item.memberId) ?? item.memberId} ${formatExtraAllocation(expense, item.amount)}`)
                       .join(' / ')}
                   </p>
                 ) : null}
@@ -98,3 +107,4 @@ export function ExpenseList({
     </section>
   );
 }
+

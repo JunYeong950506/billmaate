@@ -1,17 +1,23 @@
-export type CurrencyCode =
+﻿export type CurrencyCode =
   | 'KRW'
-  | 'JPY'
-  | 'CNY'
-  | 'TWD'
   | 'USD'
+  | 'CAD'
   | 'EUR'
   | 'GBP'
-  | 'AED'
-  | 'AUD'
-  | 'HKD'
+  | 'CHF'
+  | 'JPY'
   | 'SGD'
+  | 'HKD'
+  | 'CNY'
+  | 'MYR'
+  | 'PHP'
+  | 'IDR'
   | 'THB'
-  | 'VND';
+  | 'VND'
+  | 'TWD'
+  | 'AUD'
+  | 'NZD'
+  | 'AED';
 
 export interface Member {
   id: string;
