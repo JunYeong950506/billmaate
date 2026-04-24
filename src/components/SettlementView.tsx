@@ -358,6 +358,7 @@ export function SettlementView({
                   <th>날짜</th>
                   <th>항목</th>
                   <th>결제수단</th>
+                  <th>지출 수정</th>
                   <th>결제자</th>
                   <th>금액</th>
                   {compactKrwView ? null : <th>실제 원화 입력</th>}
@@ -368,7 +369,6 @@ export function SettlementView({
                   ))}
                   <th>부담금 합계</th>
                   <th>비고</th>
-                  <th>지출 수정</th>
                 </tr>
               </thead>
               <tbody>
@@ -389,6 +389,15 @@ export function SettlementView({
                       <td>{row.date}</td>
                       <td>{row.place}</td>
                       <td>{row.paymentMethod ?? '-'}</td>
+                      <td>
+                        {onRequestEditExpense ? (
+                          <button type="button" className="text-btn" onClick={() => onRequestEditExpense(row.expenseId)}>
+                            수정
+                          </button>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
                       <td>{nameMap.get(row.payerId) ?? row.payerId}</td>
                       <td>
                         <div className="settlement-original-amount">
@@ -470,15 +479,6 @@ export function SettlementView({
                         )}
                       </td>
                       <td>{row.note}</td>
-                      <td>
-                        {onRequestEditExpense ? (
-                          <button type="button" className="text-btn" onClick={() => onRequestEditExpense(row.expenseId)}>
-                            수정
-                          </button>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
                     </tr>
                   );
                 })}

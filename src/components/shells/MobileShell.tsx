@@ -33,7 +33,9 @@ export function MobileShell({
             <button type="button" className="icon-btn" onClick={onBack} aria-label="뒤로 가기">
               ←
             </button>
-          ) : null}
+          ) : (
+            <span className="icon-btn-placeholder" aria-hidden="true" />
+          )}
           <div className="mobile-title-block">
             <div>
               <strong>{title}</strong>
@@ -67,7 +69,7 @@ export function MobileShell({
           onClick={() => onChangeNav('settlement')}
           disabled={!canOpenSettlement}
         >
-          정산
+          정산 결과
         </button>
       </nav>
     </main>
