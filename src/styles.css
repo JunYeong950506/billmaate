@@ -1912,19 +1912,7 @@ select {
 
 .currency-picker-sheet-foreign {
   width: min(460px, 100%);
-  border-radius: 22px;
-  border: 1px solid #25283d;
-  background: #111320;
-}
-
-.currency-picker-sheet-foreign .bottom-sheet-head {
-  border-bottom-color: #2a2d43;
-  background: #111320;
-}
-
-.currency-picker-sheet-foreign .bottom-sheet-head strong,
-.currency-picker-sheet-foreign .bottom-sheet-head .text-btn {
-  color: #e9edff;
+  border-radius: 18px;
 }
 .currency-picker-body {
   background: #f4f7fc;
@@ -1934,8 +1922,8 @@ select {
 }
 
 .currency-picker-body-foreign {
-  background: #111320;
-  padding: 8px;
+  background: #f4f7fc;
+  padding: 8px 10px;
 }
 
 .currency-group {
@@ -1975,8 +1963,8 @@ select {
 }
 
 .currency-option-btn-foreign {
-  border-color: #2a2d43;
-  background: #15182a;
+  border-color: #dfe7f6;
+  background: #ffffff;
 }
 
 .currency-option-btn-active {
@@ -2029,16 +2017,6 @@ select {
 .currency-option-right small {
   font-size: 11px;
   color: #6f7d99;
-}
-
-.currency-option-btn-foreign .currency-option-name strong,
-.currency-option-btn-foreign .currency-option-right b {
-  color: #f3f5ff;
-}
-
-.currency-option-btn-foreign .currency-option-name span,
-.currency-option-btn-foreign .currency-option-right small {
-  color: #9ea4bd;
 }
 
 @media (max-width: 1023px) {

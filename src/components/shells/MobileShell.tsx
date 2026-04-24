@@ -30,8 +30,8 @@ export function MobileShell({
       <header className="mobile-header">
         <div className={`mobile-header-top ${canBack ? '' : 'mobile-header-top-no-back'}`}>
           {canBack ? (
-            <button type="button" className="icon-btn" onClick={onBack} aria-label="µ⁄∑Œ ∞°±‚">
-              °Á
+            <button type="button" className="icon-btn" onClick={onBack} aria-label="Îí§Î°ú Í∞ÄÍ∏∞">
+              ‚Üê
             </button>
           ) : null}
           <div className="mobile-title-block">
@@ -45,13 +45,13 @@ export function MobileShell({
 
       <section className="mobile-content">{children}</section>
 
-      <nav className="mobile-bottom-nav" aria-label="∏πŸ¿œ ≥ª∫Ò∞‘¿Ãº«">
+      <nav className="mobile-bottom-nav" aria-label="Î™®Î∞îÏùº ÎÇ¥ÎπÑÍ≤åÏù¥ÏÖò">
         <button
           type="button"
           className={`mobile-nav-btn ${activeNav === 'home' || activeNav === 'new' ? 'mobile-nav-btn-active' : ''}`}
           onClick={() => onChangeNav('home')}
         >
-          ∏Ò∑œ
+          Î™©Î°ù
         </button>
         <button
           type="button"
@@ -59,7 +59,7 @@ export function MobileShell({
           onClick={() => onChangeNav('record')}
           disabled={!canOpenRecord}
         >
-          ¡ˆ√‚ ≥ªø™
+          ÏßÄÏ∂ú ÎÇ¥Ïó≠
         </button>
         <button
           type="button"
@@ -67,7 +67,7 @@ export function MobileShell({
           onClick={() => onChangeNav('settlement')}
           disabled={!canOpenSettlement}
         >
-          ¡§ªÍ
+          Ï†ïÏÇ∞
         </button>
       </nav>
     </main>
