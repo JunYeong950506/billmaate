@@ -1659,6 +1659,52 @@ select {
   }
 }
 
+.panel-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.tab-row {
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+}
+
+.form-grid .amount-input-wrap {
+  min-height: 64px;
+  padding: 0 16px;
+}
+
+.form-grid .amount-input-wrap b {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.form-grid .amount-input-wrap input {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+@media (max-width: 767px) {
+  .form-grid .amount-input-wrap {
+    min-height: 56px;
+  }
+
+  .form-grid .amount-input-wrap input {
+    font-size: 24px;
+  }
+
+  .tab-btn {
+    min-width: calc(50% - 4px);
+  }
+}
+
 .quick-step-shell {
   display: grid;
   gap: 12px;

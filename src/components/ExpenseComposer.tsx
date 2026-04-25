@@ -1,5 +1,6 @@
 ﻿import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 
+import { Camera, FileSpreadsheet, ReceiptText, RefreshCw, Users, Wallet } from 'lucide-react';
 import { SUPPORTED_CURRENCIES, getCurrencyMeta } from '../constants/currencies';
 import { CurrencyCode, Expense, NewExpenseInput, Trip } from '../types';
 import { fetchAiStatus, requestCsvAutoMapping, requestOcrExtraction } from '../utils/ai';
@@ -776,7 +777,15 @@ export function ExpenseComposer({
   return (
     <section className="panel">
       <div className="panel-header">
-        <h3>기록 탭</h3>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <ReceiptText size={20} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate">Log Expense</h3>
+            <p className="hint-text">직접 입력을 중심으로 기록하고, 보조 기능은 같은 화면에서 이어서 사용합니다.</p>
+          </div>
+        </div>
         {editingExpense ? <span className="editing-pill">수정 중</span> : null}
       </div>
 
@@ -786,21 +795,30 @@ export function ExpenseComposer({
           className={`tab-btn ${mode === 'direct' ? 'tab-btn-active' : ''}`}
           onClick={() => setMode('direct')}
         >
-          직접 입력
+          <span className="inline-flex items-center gap-2">
+            <ReceiptText size={16} />
+            직접 입력
+          </span>
         </button>
         <button
           type="button"
           className={`tab-btn ${mode === 'ocr' ? 'tab-btn-active' : ''}`}
           onClick={() => setMode('ocr')}
         >
-          영수증 사진
+          <span className="inline-flex items-center gap-2">
+            <Camera size={16} />
+            영수증 사진
+          </span>
         </button>
         <button
           type="button"
           className={`tab-btn ${mode === 'csv' ? 'tab-btn-active' : ''}`}
           onClick={() => setMode('csv')}
         >
-          매출전표 등록
+          <span className="inline-flex items-center gap-2">
+            <FileSpreadsheet size={16} />
+            매출전표 등록
+          </span>
         </button>
       </div>
 
@@ -1016,48 +1034,236 @@ export function ExpenseComposer({
         <form className="form-grid" onSubmit={submitExpense}>
           {quickMode ? (
             <div className="quick-step-shell">
-              <div className="quick-step-head">
-                <div className="quick-step-head-main">
-                  <strong>지출 추가</strong>
-                  <span>Step {quickStep}/3</span>
+              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="quick-step-head">
+                  <div className="quick-step-head-main">
+                    <strong>모바일 빠른 기록</strong>
+                    <span>Step {quickStep}/3</span>
+                  </div>
+                  <p className="hint-text">한 번에 다 입력하지 않고, 핵심 정보부터 순서대로 기록합니다.</p>
+                  <div className="quick-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={quickStep}>
+                    {[1, 2, 3].map((step) => (
+                      <span
+                        key={`quick-step-indicator-${step}`}
+                        className={`quick-step-dot ${quickStep >= step ? 'quick-step-dot-active' : ''}`}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="quick-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={quickStep}>
-                  {[1, 2, 3].map((step) => (
-                    <span
-                      key={`quick-step-indicator-${step}`}
-                      className={`quick-step-dot ${quickStep >= step ? 'quick-step-dot-active' : ''}`}
-                    />
-                  ))}
-                </div>
-              </div>
 
-              {quickStep === 1 ? (
-                <div className="quick-step-section">
-                  <div className="inline-fields">
+                {quickStep === 1 ? (
+                  <div className="quick-step-section">
+                    <div className="field">
+                      <span>금액 및 통화</span>
+                      <div className="amount-input-wrap">
+                        <b>{getCurrencyMeta(currency).symbol}</b>
+                        <input
+                          value={amountText}
+                          onChange={(event) => setAmountText(event.target.value)}
+                          inputMode="decimal"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    {renderCurrencySelector('통화 선택')}
+
                     <label className="field">
-                      <span>사용처</span>
-                      <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시" />
+                      <span>지출 내용</span>
+                      <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시, 점심식사" />
                     </label>
-                    <label className="field">
-                      <span>날짜</span>
-                      <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-                    </label>
+
+                    <div className="inline-fields">
+                      <label className="field">
+                        <span>날짜</span>
+                        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>결제수단 (선택)</span>
+                        <input
+                          value={paymentMethod}
+                          onChange={(event) => setPaymentMethod(event.target.value)}
+                          placeholder="예: 트래블카드, 현금"
+                        />
+                      </label>
+                    </div>
+
+                    {currency !== 'KRW' ? (
+                      <>
+                        <div className="quick-rate-row">
+                          <label className="field">
+                            <span>환율 (1 {currency} = KRW)</span>
+                            <input
+                              value={rateText}
+                              onChange={(event) => setRateText(event.target.value)}
+                              inputMode="decimal"
+                              placeholder="환율 입력"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="secondary-btn refresh-rate-btn"
+                            onClick={() => void loadLatestRate(currency)}
+                            aria-label="무료 환율 새로고침"
+                            title="무료 환율 새로고침"
+                          >
+                            <RefreshCw size={18} />
+                          </button>
+                        </div>
+
+                        {rateMessage ? <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p> : null}
+
+                        <div className="panel-muted">
+                          <strong>예상 원화 금액 (참고)</strong>
+                          <p>~ {formatKrw(estimatedKrw)}</p>
+                          <p className="hint-text">환율 없이도 저장할 수 있고, 정산 내역에서 실제 원화를 나중에 확정할 수 있습니다.</p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="panel-muted">
+                        <strong>원화 입력 모드</strong>
+                        <p>입력한 금액이 바로 정산 기준 금액으로 사용됩니다.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {quickStep === 2 ? (
+                  <div className="quick-step-section">
+                    <div className="field">
+                      <span className="inline-flex items-center gap-2">
+                        <Wallet size={14} />
+                        결제자
+                      </span>
+                      <p className="hint-text">실제로 결제한 사람을 선택합니다.</p>
+                      <div className="chip-scroll">
+                        {trip.members.map((member) => (
+                          <button
+                            key={member.id}
+                            type="button"
+                            className={`chip ${payerId === member.id ? 'chip-active' : ''}`}
+                            onClick={() => {
+                              setPayerId(member.id);
+                              setError(null);
+                            }}
+                          >
+                            {member.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {quickStep === 3 ? (
+                  <div className="quick-step-section">
+                    <div className="field">
+                      <span className="inline-flex items-center gap-2">
+                        <Users size={14} />
+                        참여 인원
+                      </span>
+                      <p className="hint-text">같이 사용한 멤버를 선택하고, 필요하면 추가 부담금을 입력합니다.</p>
+                      <div className="chip-scroll">
+                        {trip.members.map((member) => (
+                          <button
+                            key={member.id}
+                            type="button"
+                            className={`chip ${participants.includes(member.id) ? 'chip-active' : ''}`}
+                            onClick={() => toggleParticipant(member.id)}
+                          >
+                            {member.name}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="quick-step-inline-actions">
+                        <button
+                          type="button"
+                          className="text-btn"
+                          onClick={() => {
+                            setParticipants(trip.members.map((member) => member.id));
+                            setError(null);
+                          }}
+                        >
+                          전체 선택
+                        </button>
+                        <button type="button" className="text-btn" onClick={() => setParticipants([])}>
+                          전체 해제
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="field">
+                      <span>추가 부담금 (선택)</span>
+                      <div className="extra-grid">
+                        {trip.members
+                          .filter((member) => participants.includes(member.id))
+                          .map((member) => (
+                            <label key={member.id} className="field">
+                              <span>{member.name}</span>
+                              <div className="amount-input-wrap">
+                                <b>{currency}</b>
+                                <input
+                                  value={extraMap[member.id] ?? ''}
+                                  onChange={(event) => handleExtraChange(member.id, event.target.value)}
+                                  placeholder="0"
+                                  inputMode="decimal"
+                                />
+                              </div>
+                            </label>
+                          ))}
+                      </div>
+                      <p className="hint-text">
+                        추가 부담금 합계: {currency} {formatNumber2(extraTotalInput)}
+                        {currency !== 'KRW' ? ` (≈ ${formatKrw(extraTotalKrw)})` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {error ? <p className="error-text">{error}</p> : null}
+
+                <div className="quick-step-nav">
+                  <div className="quick-step-nav-left">
+                    {editingExpense ? (
+                      <button type="button" className="secondary-btn" onClick={onCancelEdit}>
+                        수정 취소
+                      </button>
+                    ) : null}
+
+                    {quickStep > 1 ? (
+                      <button type="button" className="secondary-btn" onClick={moveQuickStepPrev}>
+                        이전
+                      </button>
+                    ) : (
+                      <button type="button" className="secondary-btn" onClick={resetDirectFields}>
+                        초기화
+                      </button>
+                    )}
                   </div>
 
-                  <label className="field">
-                    <span>결제수단 (선택)</span>
-                    <input
-                      value={paymentMethod}
-                      onChange={(event) => setPaymentMethod(event.target.value)}
-                      placeholder="예: 트래블카드, 현금"
-                    />
-                  </label>
+                  {quickStep < 3 ? (
+                    <button type="button" className="primary-btn" onClick={moveQuickStepNext}>
+                      다음
+                    </button>
+                  ) : (
+                    <button type="submit" className="primary-btn">
+                      {editingExpense ? '지출 수정 저장' : '지출 저장'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+                <div className="space-y-6">
+                  <div className="panel-muted">
+                    <strong>직접 입력</strong>
+                    <p>샘플 폼 배치를 기준으로 금액, 지출 내용, 일정 순서로 바로 기록합니다.</p>
+                  </div>
 
-                  {renderCurrencySelector()}
-
-
-                  <label className="field">
-                    <span>금액</span>
+                  <div className="field">
+                    <span>금액 및 통화</span>
                     <div className="amount-input-wrap">
                       <b>{getCurrencyMeta(currency).symbol}</b>
                       <input
@@ -1067,7 +1273,31 @@ export function ExpenseComposer({
                         placeholder="0"
                       />
                     </div>
+                  </div>
+
+                  <label className="field">
+                    <span>지출 내용</span>
+                    <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시, 저녁 식사" />
                   </label>
+
+                  <div className="inline-fields">
+                    <label className="field">
+                      <span>날짜</span>
+                      <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                    </label>
+                    <label className="field">
+                      <span>결제수단 (선택)</span>
+                      <input
+                        value={paymentMethod}
+                        onChange={(event) => setPaymentMethod(event.target.value)}
+                        placeholder="예: 트래블카드, 현금"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {renderCurrencySelector('통화 선택')}
 
                   {currency !== 'KRW' ? (
                     <>
@@ -1088,51 +1318,67 @@ export function ExpenseComposer({
                           aria-label="무료 환율 새로고침"
                           title="무료 환율 새로고침"
                         >
-                          ⟳
+                          <RefreshCw size={18} />
                         </button>
                       </div>
 
                       {rateMessage ? <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p> : null}
 
-                      <p className="hint-text">
-                        ≈ {formatKrw(estimatedKrw)} (환율 {rate > 0 ? formatNumber2(rate) : '-'} 적용 · 미입력 시 0원)
-                      </p>
+                      <div className="panel-muted">
+                        <strong>예상 원화 금액 (참고)</strong>
+                        <p>~ {formatKrw(estimatedKrw)}</p>
+                        {rate <= 0 ? <p className="hint-text">환율 없이 저장하면 예상 원화는 0원으로 저장됩니다.</p> : null}
+                        {editingExpense && getFinalKrwAmount(editingExpense) !== null ? (
+                          <p className="hint-text">현재 실제 확정 금액: {formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
+                        ) : null}
+                      </div>
                     </>
                   ) : (
-                    <p className="hint-text">원화 입력값이 정산 기준 금액으로 사용됩니다.</p>
+                    <div className="panel-muted">
+                      <strong>원화 입력 모드</strong>
+                      <p>환율 없이 바로 저장되며, 정산 내역에서는 실제 원화 금액만 검토하면 됩니다.</p>
+                    </div>
                   )}
-                </div>
-              ) : null}
 
-              {quickStep === 2 ? (
-                <div className="quick-step-section">
-                  <div className="field">
-                    <span>결제자</span>
-                    <p className="hint-text">누가 실제로 결제했나요?</p>
+                  <div className="panel-muted">
+                    <strong>보류 UI 유지</strong>
+                    <p>결제자, 참여 인원, 추가 부담금은 아래 고급 설정 영역에서 그대로 사용할 수 있습니다.</p>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" className="secondary-btn" onClick={() => setShowAdvanced((prev) => !prev)}>
+                {showAdvanced ? '고급 설정 접기' : '결제자/참여자/추가 부담금 설정'}
+              </button>
+
+              {showAdvanced ? (
+                <>
+                  <div className="prototype-pane">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <Wallet size={16} />
+                      결제자
+                    </div>
+                    <p className="hint-text">실제로 결제한 사람입니다.</p>
                     <div className="chip-scroll">
                       {trip.members.map((member) => (
                         <button
                           key={member.id}
                           type="button"
                           className={`chip ${payerId === member.id ? 'chip-active' : ''}`}
-                          onClick={() => {
-                            setPayerId(member.id);
-                            setError(null);
-                          }}
+                          onClick={() => setPayerId(member.id)}
                         >
                           {member.name}
                         </button>
                       ))}
                     </div>
                   </div>
-                </div>
-              ) : null}
 
-              {quickStep === 3 ? (
-                <div className="quick-step-section">
-                  <div className="field">
-                    <span>참여 인원</span>
-                    <p className="hint-text">누가 함께 사용한 금액인가요?</p>
+                  <div className="prototype-pane">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <Users size={16} />
+                      참여 인원 및 추가 부담금
+                    </div>
+                    <p className="hint-text">기존 분배 기능은 삭제하지 않고 이 보조 영역에 유지합니다.</p>
                     <div className="chip-scroll">
                       {trip.members.map((member) => (
                         <button
@@ -1160,192 +1406,21 @@ export function ExpenseComposer({
                         전체 해제
                       </button>
                     </div>
-                  </div>
-
-                  <div className="field">
-                    <span>추가 부담금 (선택)</span>
                     <div className="extra-grid">
                       {trip.members
                         .filter((member) => participants.includes(member.id))
                         .map((member) => (
                           <label key={member.id} className="field">
                             <span>{member.name}</span>
-                            <input
-                              value={extraMap[member.id] ?? ''}
-                              onChange={(event) => handleExtraChange(member.id, event.target.value)}
-                              placeholder="0"
-                              inputMode="decimal"
-                            />
-                          </label>
-                        ))}
-                    </div>
-                    <p className="hint-text">
-                      추가 부담금 합계: {currency} {formatNumber2(extraTotalInput)}
-                      {currency !== 'KRW' ? ` (≈ ${formatKrw(extraTotalKrw)})` : ''}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              {error ? <p className="error-text">{error}</p> : null}
-
-              <div className="quick-step-nav">
-                <div className="quick-step-nav-left">
-                  {editingExpense ? (
-                    <button type="button" className="secondary-btn" onClick={onCancelEdit}>
-                      수정 취소
-                    </button>
-                  ) : null}
-
-                  {quickStep > 1 ? (
-                    <button type="button" className="secondary-btn" onClick={moveQuickStepPrev}>
-                      ← 이전
-                    </button>
-                  ) : (
-                    <button type="button" className="secondary-btn" onClick={resetDirectFields}>
-                      초기화
-                    </button>
-                  )}
-                </div>
-
-                {quickStep < 3 ? (
-                  <button type="button" className="primary-btn" onClick={moveQuickStepNext}>
-                    다음 →
-                  </button>
-                ) : (
-                  <button type="submit" className="primary-btn">
-                    {editingExpense ? '지출 수정 저장' : '저장'}
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="inline-fields">
-                <label className="field">
-                  <span>사용처</span>
-                  <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시" />
-                </label>
-                <label className="field">
-                  <span>날짜</span>
-                  <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-                </label>
-              </div>
-
-              <label className="field">
-                <span>결제수단 (선택)</span>
-                <input
-                  value={paymentMethod}
-                  onChange={(event) => setPaymentMethod(event.target.value)}
-                  placeholder="예: 트래블카드, 현금"
-                />
-              </label>
-
-              <label className="field">
-                <span>금액</span>
-                <div className="amount-input-wrap">
-                  <b>{getCurrencyMeta(currency).symbol}</b>
-                  <input
-                    value={amountText}
-                    onChange={(event) => setAmountText(event.target.value)}
-                    inputMode="decimal"
-                    placeholder="0"
-                  />
-                </div>
-              </label>
-
-              {renderCurrencySelector('통화 선택')}
-
-
-              {currency !== 'KRW' ? (
-                <>
-                  <div className="quick-rate-row">
-                    <label className="field">
-                      <span>환율 (1 {currency} = KRW)</span>
-                      <input
-                        value={rateText}
-                        onChange={(event) => setRateText(event.target.value)}
-                        inputMode="decimal"
-                        placeholder="환율 입력"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="secondary-btn refresh-rate-btn"
-                      onClick={() => void loadLatestRate(currency)}
-                      aria-label="무료 환율 새로고침"
-                      title="무료 환율 새로고침"
-                    >
-                      ⟳
-                    </button>
-                  </div>
-                  {rateMessage ? (
-                    <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p>
-                  ) : null}
-                  <div className="panel-muted">
-                    <strong>예상 원화 금액 (참고)</strong>
-                    <p>~ {formatKrw(estimatedKrw)}</p>
-                    {rate <= 0 ? <p className="hint-text">환율 미입력 시 예상 원화는 0원으로 저장됩니다.</p> : null}
-                    {editingExpense && getFinalKrwAmount(editingExpense) !== null ? (
-                      <p className="hint-text">현재 실제 확정 금액: {formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-
-              <button type="button" className="secondary-btn" onClick={() => setShowAdvanced((prev) => !prev)}>
-                {showAdvanced ? '고급 설정 접기' : '결제자/참여자/추가 부담금 설정'}
-              </button>
-
-              {showAdvanced ? (
-                <>
-                  <div className="field">
-                    <span>결제자</span>
-                    <div className="chip-scroll">
-                      {trip.members.map((member) => (
-                        <button
-                          key={member.id}
-                          type="button"
-                          className={`chip ${payerId === member.id ? 'chip-active' : ''}`}
-                          onClick={() => setPayerId(member.id)}
-                        >
-                          {member.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="field">
-                    <span>참여 인원</span>
-                    <div className="chip-scroll">
-                      {trip.members.map((member) => (
-                        <button
-                          key={member.id}
-                          type="button"
-                          className={`chip ${participants.includes(member.id) ? 'chip-active' : ''}`}
-                          onClick={() => toggleParticipant(member.id)}
-                        >
-                          {member.name}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="hint-text">한 명 이상은 반드시 선택되어야 합니다.</p>
-                  </div>
-
-                  <div className="field">
-                    <span>추가 부담금 (선택)</span>
-                    <div className="extra-grid">
-                      {trip.members
-                        .filter((member) => participants.includes(member.id))
-                        .map((member) => (
-                          <label key={member.id} className="field">
-                            <span>{member.name}</span>
-                            <input
-                              value={extraMap[member.id] ?? ''}
-                              onChange={(event) => handleExtraChange(member.id, event.target.value)}
-                              placeholder="0"
-                              inputMode="decimal"
-                            />
+                            <div className="amount-input-wrap">
+                              <b>{currency}</b>
+                              <input
+                                value={extraMap[member.id] ?? ''}
+                                onChange={(event) => handleExtraChange(member.id, event.target.value)}
+                                placeholder="0"
+                                inputMode="decimal"
+                              />
+                            </div>
                           </label>
                         ))}
                     </div>
@@ -1355,7 +1430,12 @@ export function ExpenseComposer({
                     </p>
                   </div>
                 </>
-              ) : null}
+              ) : (
+                <div className="panel-muted">
+                  <strong>고급 분배 UI 보류</strong>
+                  <p>현재는 핵심 기록 입력을 먼저 노출하고, 세부 분배 입력은 필요할 때만 펼쳐 사용합니다.</p>
+                </div>
+              )}
 
               {error ? <p className="error-text">{error}</p> : null}
 
@@ -1379,6 +1459,7 @@ export function ExpenseComposer({
     </section>
   );
 }
+
 
 
 
