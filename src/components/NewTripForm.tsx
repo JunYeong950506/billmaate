@@ -118,12 +118,14 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Departure</label>
-              <div className="relative">
-                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+              <div className="trip-date-field">
+                <span className="trip-field-icon" aria-hidden="true">
+                  <Calendar size={18} className="text-slate-300" />
+                </span>
                 <input
                   type="date"
                   required
-                  className="w-full rounded-2xl border-2 border-slate-100 bg-white py-5 pl-12 pr-4 font-bold outline-none shadow-sm focus:border-indigo-500"
+                  className="trip-date-input"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
                 />
@@ -132,12 +134,14 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
 
             <div className="space-y-2">
               <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Return</label>
-              <div className="relative">
-                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+              <div className="trip-date-field">
+                <span className="trip-field-icon" aria-hidden="true">
+                  <Calendar size={18} className="text-slate-300" />
+                </span>
                 <input
                   type="date"
                   required
-                  className="w-full rounded-2xl border-2 border-slate-100 bg-white py-5 pl-12 pr-4 font-bold outline-none shadow-sm focus:border-indigo-500"
+                  className="trip-date-input"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
                 />
@@ -156,14 +160,16 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
 
             <div className="space-y-2">
               <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Members</label>
-              <div className="relative">
-                <Users size={18} className="absolute left-4 top-5 text-slate-300" />
+              <div className="trip-textarea-field">
+                <span className="trip-field-icon trip-field-icon-top" aria-hidden="true">
+                  <Users size={18} className="text-slate-300" />
+                </span>
                 <textarea
                   rows={4}
                   value={membersText}
                   onChange={(event) => setMembersText(event.target.value)}
                   placeholder="예: 민수, 지은, 태호"
-                  className="w-full rounded-2xl border-2 border-slate-100 bg-white py-5 pl-12 pr-4 font-bold outline-none shadow-sm placeholder:text-slate-200 focus:border-indigo-500"
+                  className="trip-textarea-input"
                 />
               </div>
             </div>

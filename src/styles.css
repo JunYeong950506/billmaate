@@ -2104,6 +2104,74 @@ select {
   color: #1b2740;
 }
 
+.trip-date-field,
+.trip-textarea-field {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  border: 2px solid #f1f5fb;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.trip-date-field:focus-within,
+.trip-textarea-field:focus-within {
+  border-color: #8eb3ff;
+  box-shadow: 0 0 0 4px rgba(45, 115, 255, 0.12);
+}
+
+.trip-field-icon {
+  width: 48px;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.trip-field-icon-top {
+  align-items: flex-start;
+  padding-top: 20px;
+}
+
+.trip-date-input,
+.trip-textarea-input {
+  width: auto;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.trip-date-input {
+  padding: 20px 16px 20px 0;
+}
+
+.trip-textarea-input {
+  min-height: 154px;
+  padding: 18px 16px 18px 0;
+  resize: vertical;
+}
+
+.trip-date-input:focus,
+.trip-textarea-input:focus {
+  box-shadow: none;
+}
+
+.trip-date-input::-webkit-datetime-edit,
+.trip-date-input::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+.trip-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
 .mobile-title-block p {
   margin: 3px 0 0;
   font-size: 12px;
@@ -2354,13 +2422,37 @@ select {
   overscroll-behavior: contain;
 }
 
+.sheet-overlay.currency-picker-overlay {
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.bottom-sheet.currency-picker-sheet {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  border-radius: 18px;
+  border-bottom: 1px solid #d6e3ff;
+}
+
+.bottom-sheet.currency-picker-sheet.currency-picker-sheet-foreign {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.bottom-sheet.currency-picker-sheet .bottom-sheet-body {
+  padding: 10px 12px;
+}
+
 @media (max-width: 767px) {
-  .sheet-overlay.expense-composer-overlay {
+  .sheet-overlay.expense-composer-overlay,
+  .sheet-overlay.currency-picker-overlay {
     align-items: center;
     padding: 8px;
   }
 
-  .bottom-sheet.expense-composer-sheet {
+  .bottom-sheet.expense-composer-sheet,
+  .bottom-sheet.currency-picker-sheet,
+  .bottom-sheet.currency-picker-sheet.currency-picker-sheet-foreign {
     width: calc(100% - 8px);
     max-height: 92vh;
     border-radius: 16px;
