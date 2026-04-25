@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 
 import { Expense, NewExpenseInput, NewTripInput, Trip, TripSummary } from './types';
 import { resolveAppliedKrwAmount } from './utils/expenseAmount';
@@ -18,10 +19,7 @@ interface RemovedTripSnapshot {
   expenses: Expense[];
 }
 
-function buildTripSummaries(
-  tripIds: string[],
-  expenses: ReturnType<typeof useTravelStore.getState>['expenses'],
-): Record<string, TripSummary> {
+function buildTripSummaries(tripIds: string[], expenses: Expense[]): Record<string, TripSummary> {
   const initial = tripIds.reduce<Record<string, TripSummary>>((acc, tripId) => {
     acc[tripId] = { tripId, expenseCount: 0, totalKrw: 0 };
     return acc;
@@ -52,11 +50,7 @@ export default function App(): JSX.Element {
   const setExpenseFinalKrwAmount = useTravelStore((state) => state.setExpenseFinalKrwAmount);
 
   const sortedTrips = useMemo(() => [...trips].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [trips]);
-
-  const summaries = useMemo(
-    () => buildTripSummaries(sortedTrips.map((trip) => trip.id), expenses),
-    [expenses, sortedTrips],
-  );
+  const summaries = useMemo(() => buildTripSummaries(sortedTrips.map((trip) => trip.id), expenses), [expenses, sortedTrips]);
 
   const [desktopView, setDesktopView] = useState<DesktopView>('home');
   const [mobileNav, setMobileNav] = useState<MobileNav>('home');
@@ -74,6 +68,7 @@ export default function App(): JSX.Element {
     if (!selectedTrip) {
       return [];
     }
+
     return expenses.filter((expense) => expense.tripId === selectedTrip.id);
   }, [expenses, selectedTrip]);
 
@@ -94,7 +89,7 @@ export default function App(): JSX.Element {
       setDesktopView('home');
       setMobileNav('home');
     }
-  }, [selectedTrip, desktopView, mobileNav]);
+  }, [desktopView, mobileNav, selectedTrip]);
 
   useEffect(() => {
     return () => {
@@ -140,6 +135,7 @@ export default function App(): JSX.Element {
     } else {
       addExpense(payload);
     }
+
     setErrorMessage(null);
   }
 
@@ -158,7 +154,6 @@ export default function App(): JSX.Element {
     }
 
     const removedExpenses = expenses.filter((expense) => expense.tripId === tripId);
-
     removeTrip(tripId);
 
     if (undoTimerRef.current !== null) {
@@ -293,25 +288,56 @@ export default function App(): JSX.Element {
     );
   }
 
-  function renderUndoToast(): JSX.Element | null {
-    if (!removedTripSnapshot) {
-      return null;
-    }
-
+  function renderUndoToast(): JSX.Element {
     return (
-      <div className="undo-toast" role="status" aria-live="polite">
-        <span>[{removedTripSnapshot.trip.name}] 삭제됐어요.</span>
-        <button type="button" className="text-btn undo-toast-btn" onClick={handleUndoRemoveTrip}>
-          되돌리기
-        </button>
-      </div>
+      <AnimatePresence>
+        {removedTripSnapshot ? (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-24 left-1/2 z-[100] w-[calc(100%-48px)] max-w-md -translate-x-1/2"
+          >
+            <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-slate-900/95 p-6 text-white shadow-2xl backdrop-blur-2xl">
+              <div className="flex flex-col">
+                <span className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Archived State</span>
+                <span className="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold tracking-tight">
+                  {removedTripSnapshot.trip.name} was removed.
+                </span>
+              </div>
+              <button
+                type="button"
+                className="rounded-xl bg-indigo-600 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-95 hover:bg-indigo-500"
+                onClick={handleUndoRemoveTrip}
+              >
+                Restore
+              </button>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     );
   }
 
   if (layoutMode === 'desktop') {
     return (
       <>
-        {errorMessage ? <p className="app-error-banner">{errorMessage}</p> : null}
+        <AnimatePresence>
+          {errorMessage ? (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="fixed right-8 top-8 z-[200] max-w-xs"
+            >
+              <div className="flex items-start gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-5 shadow-xl">
+                <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />
+                <p className="text-xs font-bold uppercase tracking-tighter text-orange-800">{errorMessage}</p>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
         <DesktopShell
           trips={sortedTrips}
           summaries={summaries}
@@ -332,19 +358,35 @@ export default function App(): JSX.Element {
     mobileNav === 'new'
       ? '새 여행 만들기'
       : mobileNav === 'settlement'
-        ? selectedTrip?.name ? `${selectedTrip.name} 정산` : '정산'
+        ? selectedTrip?.name
+          ? `${selectedTrip.name} 정산`
+          : '정산'
         : mobileNav === 'record'
-          ? selectedTrip?.name ? `${selectedTrip.name} 지출 내역` : '지출 내역'
+          ? selectedTrip?.name
+            ? `${selectedTrip.name} 기록`
+            : '기록'
           : '여행 목록';
 
   const mobileSubtitle =
-    selectedTrip && (mobileNav === 'record' || mobileNav === 'settlement')
-      ? `${selectedTrip.startDate} ~ ${selectedTrip.endDate}`
-      : undefined;
+    selectedTrip && (mobileNav === 'record' || mobileNav === 'settlement') ? `${selectedTrip.startDate} ~ ${selectedTrip.endDate}` : undefined;
 
   return (
     <>
-      {errorMessage ? <p className="app-error-banner">{errorMessage}</p> : null}
+      <AnimatePresence>
+        {errorMessage ? (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed left-6 right-6 top-24 z-[200]"
+          >
+            <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4 text-center shadow-xl">
+              <p className="text-xs font-bold uppercase tracking-tighter text-orange-800">{errorMessage}</p>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <MobileShell
         title={mobileTitle}
         subtitle={mobileSubtitle}
@@ -366,5 +408,3 @@ export default function App(): JSX.Element {
     </>
   );
 }
-
-

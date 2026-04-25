@@ -1,8 +1,10 @@
-﻿import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Calendar, Globe, Users } from 'lucide-react';
 
-import { getCurrencyMeta, getOrderedCurrencies } from '../constants/currencies';
+import { getCurrencyMeta } from '../constants/currencies';
 import { CurrencyCode, NewTripInput } from '../types';
 import { todayIso } from '../utils/format';
+import { CurrencyPicker } from './CurrencyPicker';
 
 interface NewTripFormProps {
   onSubmit: (payload: NewTripInput) => void;
@@ -26,19 +28,17 @@ function parseMembers(value: string): string[] {
 }
 
 export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Element {
-  const defaultStartDate = todayIso();
+  const defaultDate = todayIso();
 
-  const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
-  const [startDate, setStartDate] = useState(defaultStartDate);
-  const [endDate, setEndDate] = useState(defaultStartDate);
+  const [startDate, setStartDate] = useState(defaultDate);
+  const [endDate, setEndDate] = useState(defaultDate);
   const [membersText, setMembersText] = useState('');
   const [defaultCurrency, setDefaultCurrency] = useState<CurrencyCode>('KRW');
   const [defaultPayerName, setDefaultPayerName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const members = useMemo(() => parseMembers(membersText), [membersText]);
-  const orderedCurrencies = useMemo(() => getOrderedCurrencies(defaultCurrency), [defaultCurrency]);
 
   useEffect(() => {
     if (members.length === 0) {
@@ -49,41 +49,23 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
     if (!members.includes(defaultPayerName)) {
       setDefaultPayerName(members[0]);
     }
-  }, [members, defaultPayerName]);
-
-  function validateStep1(): boolean {
-    if (!name.trim()) {
-      setError('여행 이름을 입력해주세요.');
-      return false;
-    }
-
-    if (!startDate || !endDate) {
-      setError('여행 날짜를 입력해주세요.');
-      return false;
-    }
-
-    if (startDate > endDate) {
-      setError('종료일은 시작일보다 빠를 수 없습니다.');
-      return false;
-    }
-
-    setError(null);
-    return true;
-  }
-
-  function moveToStep2(): void {
-    if (!validateStep1()) {
-      return;
-    }
-
-    setStep(2);
-  }
+  }, [defaultPayerName, members]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
 
-    if (step === 1) {
-      moveToStep2();
+    if (!name.trim()) {
+      setError('여행 이름을 입력해주세요.');
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      setError('여행 날짜를 입력해주세요.');
+      return;
+    }
+
+    if (startDate > endDate) {
+      setError('종료일은 시작일보다 빠를 수 없습니다.');
       return;
     }
 
@@ -100,7 +82,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
     setError(null);
 
     onSubmit({
-      name,
+      name: name.trim(),
       startDate,
       endDate,
       members,
@@ -110,117 +92,129 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
   }
 
   return (
-    <section className="panel">
-      <h2>새 여행 만들기</h2>
-      <form className="form-grid" onSubmit={handleSubmit}>
-        <div className="new-trip-step-head">
-          <div className="new-trip-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={2} aria-valuenow={step}>
-            {[1, 2].map((stepValue) => (
-              <span
-                key={`new-trip-step-${stepValue}`}
-                className={`new-trip-step-dot ${step >= stepValue ? 'new-trip-step-dot-active' : ''}`}
-              />
-            ))}
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-10 py-10">
+      <div className="space-y-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/20">
+          <Globe size={24} className="text-white" />
+        </div>
+        <h2 className="text-4xl font-bold tracking-tighter text-slate-900">어디로 떠나시나요?</h2>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">새 여행의 핵심 정보를 입력해주세요.</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Trip Name</label>
+            <input
+              type="text"
+              required
+              placeholder="예: 4월 가정 방문"
+              className="w-full rounded-2xl border-2 border-slate-100 bg-white p-5 text-xl font-bold text-slate-900 outline-none transition-all placeholder:text-slate-200 focus:border-indigo-500 shadow-sm"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
           </div>
-          <p className="hint-text">Step {step}/2</p>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Departure</label>
+              <div className="relative">
+                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input
+                  type="date"
+                  required
+                  className="w-full rounded-2xl border-2 border-slate-100 bg-white py-5 pl-12 pr-4 font-bold outline-none shadow-sm focus:border-indigo-500"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Return</label>
+              <div className="relative">
+                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input
+                  type="date"
+                  required
+                  className="w-full rounded-2xl border-2 border-slate-100 bg-white py-5 pl-12 pr-4 font-bold outline-none shadow-sm focus:border-indigo-500"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Base Currency</label>
+              <div className="rounded-2xl border-2 border-slate-100 bg-white p-2 shadow-sm">
+                <CurrencyPicker value={defaultCurrency} onChange={setDefaultCurrency} modalTitle="기본 통화 선택" />
+              </div>
+              <p className="ml-1 text-xs font-medium text-slate-400">{getCurrencyMeta(defaultCurrency).name}</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Members</label>
+              <div className="relative">
+                <Users size={18} className="absolute left-4 top-5 text-slate-300" />
+                <textarea
+                  rows={4}
+                  value={membersText}
+                  onChange={(event) => setMembersText(event.target.value)}
+                  placeholder="예: 민수, 지은, 태호"
+                  className="w-full rounded-2xl border-2 border-slate-100 bg-white py-5 pl-12 pr-4 font-bold outline-none shadow-sm placeholder:text-slate-200 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Default Payer</label>
+            <div className="flex flex-wrap gap-2">
+              {members.length === 0 ? <p className="text-sm font-medium text-slate-400">멤버 입력 후 선택할 수 있습니다.</p> : null}
+              {members.map((memberName) => (
+                <button
+                  key={memberName}
+                  type="button"
+                  onClick={() => setDefaultPayerName(memberName)}
+                  className={`rounded-full px-4 py-2 text-sm font-bold transition-all ${
+                    defaultPayerName === memberName ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  {memberName}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {step === 1 ? (
-          <>
-            <label className="field">
-              <span>여행 이름</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 7월 도쿄 여행" />
-            </label>
+        {error ? (
+          <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700">{error}</div>
+        ) : null}
 
-            <div className="inline-fields">
-              <label className="field">
-                <span>시작일</span>
-                <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-              </label>
-              <label className="field">
-                <span>종료일</span>
-                <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-              </label>
-            </div>
-
-            <div className="field">
-              <span>주 통화</span>
-              <div className="chip-scroll currency-chip-scroll">
-                {orderedCurrencies.map((currency) => (
-                  <button
-                    key={`new-trip-currency-${currency.code}`}
-                    type="button"
-                    className={`chip currency-chip ${defaultCurrency === currency.code ? 'chip-active' : ''}`}
-                    onClick={() => setDefaultCurrency(currency.code)}
-                  >
-                    {currency.symbol} {currency.code}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <label className="field">
-              <span>멤버 (쉼표 또는 줄바꿈)</span>
-              <textarea
-                value={membersText}
-                onChange={(event) => setMembersText(event.target.value)}
-                placeholder={'예: 민수, 지은, 태호'}
-                rows={4}
-              />
-            </label>
-
-            <div className="field">
-              <span>기본 결제자</span>
-              <div className="chip-scroll">
-                {members.length === 0 ? <p className="hint-text">멤버 입력 후 선택할 수 있습니다.</p> : null}
-                {members.map((memberName) => (
-                  <button
-                    key={memberName}
-                    type="button"
-                    className={`chip ${defaultPayerName === memberName ? 'chip-active' : ''}`}
-                    onClick={() => setDefaultPayerName(memberName)}
-                  >
-                    {memberName}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="panel-muted">
-              <strong>{getCurrencyMeta(defaultCurrency).code}</strong>
-              <p>지출 입력 기본 통화는 {getCurrencyMeta(defaultCurrency).name}으로 설정됩니다.</p>
-            </div>
-          </>
-        )}
-
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <div className="actions-row">
+        <div className="flex gap-4 pt-4">
           {onCancel ? (
-            <button type="button" className="secondary-btn" onClick={onCancel}>
-              취소
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 rounded-2xl border-2 border-slate-100 px-6 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 transition-all hover:bg-slate-50"
+            >
+              Cancel
             </button>
           ) : null}
 
-          {step === 2 ? (
-            <button type="button" className="secondary-btn" onClick={() => setStep(1)}>
-              ← 이전
-            </button>
-          ) : null}
-
-          {step === 1 ? (
-            <button type="button" className="primary-btn" onClick={moveToStep2}>
-              다음 →
-            </button>
-          ) : (
-            <button type="submit" className="primary-btn">
-              여행 저장
-            </button>
-          )}
+          <button
+            type="submit"
+            className="flex-[2] rounded-2xl bg-slate-900 px-6 py-5 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-slate-900/10 transition-all hover:bg-indigo-600 active:scale-95"
+          >
+            <span className="inline-flex items-center gap-2">
+              Deploy Trip
+              <ArrowRight size={18} />
+            </span>
+          </button>
         </div>
       </form>
-    </section>
+    </div>
   );
 }
