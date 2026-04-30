@@ -22,7 +22,7 @@ export function TripList({
   showCreateAction = true,
 }: TripListProps): JSX.Element {
   return (
-    <div className="flex w-full flex-col gap-10 px-8 py-8 pb-32">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-8 py-8 pb-32">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-800">여행 목록</h2>

@@ -98,7 +98,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 18, scale: 1.01 }}
       transition={{ duration: 0.24, ease: 'easeOut' }}
-      className="flex w-full flex-col gap-10 px-10 py-10"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-10 py-10"
     >
       <div className="space-y-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/20">

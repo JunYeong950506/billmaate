@@ -78,6 +78,7 @@ export function TripDetail({
           ? 'settings'
           : tab;
   const isSettlementTab = activeTab === 'settlementDetail' || activeTab === 'settlementResult';
+  const settlementContentMaxWidth = activeTab === 'settlementDetail' ? 'max-w-[1600px]' : 'max-w-[1400px]';
 
   const totalKrw = useMemo(() => expenses.reduce((sum, item) => sum + resolveAppliedKrwAmount(item).amount, 0), [expenses]);
   const sortedExpenses = useMemo(
@@ -252,7 +253,7 @@ export function TripDetail({
             className="h-full"
           >
             {activeTab === 'record' ? (
-              <div className="flex w-full flex-col gap-10 px-8 py-8 pb-32">
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-8 py-8 pb-32">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                   <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">총 지출</p>
@@ -307,7 +308,7 @@ export function TripDetail({
             ) : null}
 
             {activeTab === 'settlementDetail' || activeTab === 'settlementResult' ? (
-              <div className="flex w-full flex-col gap-6 px-8 py-8 pb-32">
+              <div className={`mx-auto flex w-full ${settlementContentMaxWidth} flex-col gap-6 px-8 py-8 pb-32`}>
                 <div className="flex flex-wrap items-center justify-end gap-4">
                   <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
                     <button
@@ -346,7 +347,7 @@ export function TripDetail({
             ) : null}
 
             {activeTab === 'settings' ? (
-              <div className="flex w-full flex-col gap-10 px-10 py-10 pb-32">
+              <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-10 py-10 pb-32">
                 <div className="space-y-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-900/10">
                     <Settings size={22} className="text-white" />
