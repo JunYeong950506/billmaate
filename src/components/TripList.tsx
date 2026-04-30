@@ -25,7 +25,7 @@ export function TripList({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-8 py-8 pb-32">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-800">여행 목록</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-800">Your Trips</h2>
           <p className="text-sm font-medium text-slate-500">여행을 선택해 지출 기록과 정산을 이어서 관리합니다.</p>
         </div>
         {showCreateAction ? (
@@ -35,7 +35,7 @@ export function TripList({
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-95 hover:bg-indigo-500"
           >
             <Plus size={20} />
-            <span>새 여행 만들기</span>
+            <span>+New Trip</span>
           </button>
         ) : null}
       </div>
@@ -69,15 +69,15 @@ export function TripList({
 
                 <div className="grid grid-cols-2 gap-6 pt-2 md:grid-cols-3">
                   <div className="flex flex-col">
-                    <span className="mb-1 text-[10px] font-bold uppercase text-slate-400">총 지출</span>
+                    <span className="mb-1 text-[10px] font-bold uppercase text-slate-400">TOTAL PAYMENT</span>
                     <span className="font-bold text-slate-900">{formatKrw(summary.totalKrw)}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="mb-1 text-[10px] font-bold uppercase text-slate-400">지출 건수</span>
-                    <span className="text-sm font-semibold text-slate-600">{summary.expenseCount}건</span>
+                    <span className="mb-1 text-[10px] font-bold uppercase text-slate-400">RECORDS</span>
+                    <span className="text-sm font-semibold text-slate-600">{summary.expenseCount} entries</span>
                   </div>
                   <div className="hidden flex-col md:flex">
-                    <span className="mb-1 text-[10px] font-bold uppercase text-slate-400">기본 통화</span>
+                    <span className="mb-1 text-[10px] font-bold uppercase text-slate-400">BASE CURRENCY</span>
                     <span className="text-sm font-semibold text-slate-600">{trip.defaultCurrency}</span>
                   </div>
                 </div>
@@ -94,7 +94,7 @@ export function TripList({
                 >
                   <Trash2 size={20} />
                 </button>
-                <div className="rounded-xl bg-slate-900 p-3 text-white transition-all group-hover:bg-indigo-600">
+                <div className="rounded-xl bg-indigo-600 p-3 text-white transition-all group-hover:bg-indigo-500">
                   <ArrowRight size={20} />
                 </div>
               </div>
@@ -112,9 +112,9 @@ export function TripList({
             <button
               type="button"
               onClick={onCreate}
-              className="rounded-xl bg-slate-900 px-8 py-3 font-bold text-white shadow-lg shadow-slate-900/10 transition-all hover:bg-indigo-600"
+              className="rounded-xl bg-indigo-600 px-8 py-3 font-bold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-500"
             >
-              새 여행 만들기
+              +New Trip
             </button>
           </div>
         ) : null}

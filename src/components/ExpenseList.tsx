@@ -61,7 +61,7 @@ export function ExpenseList({
             <div className="flex items-center justify-between px-2">
               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">{date}</span>
               <span className="text-[10px] font-bold uppercase tracking-tighter text-slate-500">
-                일별 합계 <span className="ml-1 font-mono font-bold text-slate-900">{formatKrw(dateTotal)}</span>
+                DAY TOTAL <span className="ml-1 font-mono font-bold text-slate-900">{formatKrw(dateTotal)}</span>
               </span>
             </div>
 
@@ -88,15 +88,10 @@ export function ExpenseList({
                         <h4 className="truncate text-sm font-bold tracking-tight text-slate-800 transition-colors group-hover:text-indigo-600">
                           {expense.place}
                         </h4>
-                        {expense.paymentMethod ? (
-                          <span className="rounded-full bg-slate-100/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-500">
-                            {expense.paymentMethod}
-                          </span>
-                        ) : null}
                       </div>
 
                       <p className="text-[11px] font-bold tracking-tight text-slate-400">
-                        결제자 {payerName} · 참여자 {participantNames}
+                        결제자 {payerName} · 참여자 {participantNames || '-'}
                       </p>
 
                       {expense.extraAllocations.length > 0 ? (

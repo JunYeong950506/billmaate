@@ -94,12 +94,9 @@ export function ExpenseComposer({
   const [payerId, setPayerId] = useState(trip.defaultPayerId);
   const [place, setPlace] = useState('');
   const [date, setDate] = useState(todayIso());
-  const [paymentMethod, setPaymentMethod] = useState('');
   const [amountText, setAmountText] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>(trip.defaultCurrency);
   const [rateText, setRateText] = useState(defaultRateText(trip.defaultCurrency));
-  const [rateStatus, setRateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [rateMessage, setRateMessage] = useState<string | null>(null);
   const [participants, setParticipants] = useState<string[]>(trip.members.map((member) => member.id));
   const [extraMap, setExtraMap] = useState<Record<string, string>>({});
   const [showAdvanced, setShowAdvanced] = useState(!quickMode);
@@ -124,10 +121,10 @@ export function ExpenseComposer({
 
   const amount = clampToNonNegativeNumber(amountText);
   const rate = clampToNonNegativeNumber(rateText);
-  const effectiveRate = currency === 'KRW' ? 1 : rate;
+  const effectiveRate = currency === 'KRW' ? 1 : rate > 0 ? rate : 1;
   const estimatedKrw = currency === 'KRW' ? amount : amount * effectiveRate;
 
-  const resolvedRateForExtra = currency === 'KRW' ? 1 : rate > 0 ? rate : amount > 0 ? estimatedKrw / amount : 0;
+  const resolvedRateForExtra = effectiveRate;
 
   const extraTotalInput = participants.reduce((sum, memberId) => {
     return sum + clampToNonNegativeNumber(extraMap[memberId] ?? '0');
@@ -154,29 +151,21 @@ export function ExpenseComposer({
       }
     } catch {
       setAiReady(false);
-      setAiStatusMessage('AI 상태를 확인하지 못했습니다. OCR/AI 매핑 없이도 수동 입력은 가능합니다.');
+      setAiStatusMessage('AI 상태를 확인하지 못했습니다. AI 추출/AI 매핑 없이도 수동 입력은 가능합니다.');
     }
   }
 
   async function loadLatestRate(targetCurrency: CurrencyCode): Promise<void> {
     if (targetCurrency === 'KRW') {
-      setRateStatus('idle');
-      setRateMessage(null);
       setRateText('1');
       return;
     }
 
-    setRateStatus('loading');
-    setRateMessage('무료 환율 API로 현재 환율을 조회하는 중입니다.');
-
     try {
       const latestRate = await fetchLatestRateToKrw(targetCurrency);
       setRateText(String(latestRate));
-      setRateStatus('success');
-      setRateMessage(`현재 환율(1 ${targetCurrency} = KRW ${formatNumber2(latestRate)})을 적용했습니다. 예상 금액 안내용입니다.`);
     } catch {
-      setRateStatus('error');
-      setRateMessage('환율 조회에 실패했습니다. 환율을 직접 입력하거나 환율 없이 현지 화폐로 저장할 수 있습니다.');
+      setRateText('');
     }
   }
   useEffect(() => {
@@ -195,13 +184,10 @@ export function ExpenseComposer({
     setPayerId(trip.defaultPayerId);
     setCurrency(trip.defaultCurrency);
     setRateText(defaultRateText(trip.defaultCurrency));
-    setRateStatus('idle');
-    setRateMessage(null);
     setParticipants(trip.members.map((member) => member.id));
     setExtraMap({});
     setPlace('');
     setDate(todayIso());
-    setPaymentMethod('');
     setAmountText('');
     setShowAdvanced(!quickMode);
     setError(null);
@@ -229,7 +215,6 @@ export function ExpenseComposer({
     setPayerId(editingExpense.payerId);
     setPlace(editingExpense.place);
     setDate(editingExpense.date);
-    setPaymentMethod(editingExpense.paymentMethod ?? '');
     setAmountText(String(editingExpense.originalAmount));
     setCurrency(editingExpense.originalCurrency);
     setRateText(editingExpense.exchangeRate ? String(editingExpense.exchangeRate) : defaultRateText(editingExpense.originalCurrency));
@@ -242,8 +227,6 @@ export function ExpenseComposer({
   useEffect(() => {
     if (currency === 'KRW') {
       setRateText('1');
-      setRateStatus('idle');
-      setRateMessage(null);
       return;
     }
 
@@ -274,11 +257,8 @@ export function ExpenseComposer({
     setPlace('');
     setAmountText('');
     setDate(todayIso());
-    setPaymentMethod('');
     setCurrency(trip.defaultCurrency);
     setRateText(defaultRateText(trip.defaultCurrency));
-    setRateStatus('idle');
-    setRateMessage(null);
     setPayerId(trip.defaultPayerId);
     setParticipants(trip.members.map((member) => member.id));
     setExtraMap({});
@@ -395,11 +375,6 @@ export function ExpenseComposer({
       return;
     }
 
-    if (currency !== 'KRW' && extraTotalInput > 0 && resolvedRateForExtra <= 0) {
-      setError('추가 부담금을 반영하려면 환율을 입력해주세요. 환율 없이 저장하려면 추가 부담금을 0으로 두세요.');
-      return;
-    }
-
     if (extraTotalKrw > estimatedKrw) {
       setError('추가 할당 합계가 총 금액보다 클 수 없습니다.');
       return;
@@ -418,7 +393,6 @@ export function ExpenseComposer({
       tripId: trip.id,
       place,
       date,
-      paymentMethod: paymentMethod.trim() || undefined,
       payerId,
       originalAmount: amount,
       originalCurrency: currency,
@@ -452,15 +426,15 @@ export function ExpenseComposer({
     }
 
     setOcrLoading(true);
-    setOcrMessage('OCR 추출 중입니다...');
+    setOcrMessage('AI 추출 중입니다...');
 
     try {
       const extracted = await requestOcrExtraction(ocrFiles);
       setOcrResults(extracted);
-      setOcrMessage(`${extracted.length}건 OCR 결과를 가져왔습니다.`);
+      setOcrMessage(`${extracted.length}건 AI 결과를 가져왔습니다.`);
     } catch {
       setOcrResults([]);
-      setOcrMessage('OCR 추출에 실패했습니다. 직접 입력을 사용해주세요.');
+      setOcrMessage('AI 추출에 실패했습니다. 직접 입력을 사용해주세요.');
     } finally {
       setOcrLoading(false);
     }
@@ -490,7 +464,7 @@ export function ExpenseComposer({
 
     setMode('direct');
     setError(null);
-    setOcrMessage('OCR 결과를 직접 입력 폼에 반영했습니다. 필요한 값만 수정 후 저장하세요.');
+    setOcrMessage('AI 결과를 직접 입력 폼에 반영했습니다. 필요한 값만 수정 후 저장하세요.');
   }
 
   async function applyCsvAutoMapping(headers: string[], dataRows: string[][], fallback: CsvMapping): Promise<CsvMapping> {
@@ -716,7 +690,6 @@ export function ExpenseComposer({
         tripId: trip.id,
         place: row.placeValue,
         date: row.normalizedDate,
-        paymentMethod: undefined,
         payerId: trip.defaultPayerId,
         originalAmount: row.amountValue,
         originalCurrency: row.normalizedCurrency,
@@ -818,11 +791,17 @@ export function ExpenseComposer({
           <p className="hint-text">선택된 파일: {ocrFiles.length}개</p>
 
           <div className="actions-row">
-            <button type="button" className="secondary-btn" onClick={() => void refreshAiStatus()}>
-              AI 상태 새로고침
+            <button
+              type="button"
+              className="secondary-btn refresh-rate-btn"
+              onClick={() => void refreshAiStatus()}
+              aria-label="AI 상태 새로고침"
+              title="AI 상태 새로고침"
+            >
+              <RefreshCw size={18} />
             </button>
             <button type="button" className="primary-btn" onClick={() => void runOcrExtraction()} disabled={!aiReady || ocrLoading}>
-              OCR 추출 실행
+              AI 추출
             </button>
           </div>
 
@@ -844,9 +823,6 @@ export function ExpenseComposer({
             </ul>
           ) : null}
 
-          <button type="button" className="secondary-btn" onClick={() => setMode('direct')}>
-            직접 입력으로 기록하기
-          </button>
         </div>
       ) : null}
 
@@ -1006,7 +982,6 @@ export function ExpenseComposer({
                     <strong>모바일 빠른 기록</strong>
                     <span>Step {quickStep}/2</span>
                   </div>
-                  <p className="hint-text">한 번에 다 입력하지 않고, 핵심 정보부터 순서대로 기록합니다.</p>
                   <div className="quick-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={2} aria-valuenow={quickStep}>
                     {[1, 2].map((step) => (
                       <span
@@ -1026,52 +1001,10 @@ export function ExpenseComposer({
                       <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시, 점심식사" />
                     </label>
 
-                    <div className="inline-fields">
-                      <label className="field">
-                        <span>날짜</span>
-                        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-                      </label>
-                      <label className="field">
-                        <span>결제수단 (선택)</span>
-                        <input
-                          value={paymentMethod}
-                          onChange={(event) => setPaymentMethod(event.target.value)}
-                          placeholder="예: 트래블카드, 현금"
-                        />
-                      </label>
-                    </div>
-
-                    {currency !== 'KRW' ? (
-                      <>
-                        <div className="quick-rate-row">
-                          <label className="field">
-                            <span>환율 (1 {currency} = KRW)</span>
-                            <input
-                              value={rateText}
-                              onChange={(event) => setRateText(event.target.value)}
-                              inputMode="decimal"
-                              placeholder="환율 입력"
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            className="secondary-btn refresh-rate-btn"
-                            onClick={() => void loadLatestRate(currency)}
-                            aria-label="무료 환율 새로고침"
-                            title="무료 환율 새로고침"
-                          >
-                            <RefreshCw size={18} />
-                          </button>
-                        </div>
-
-                        {rateMessage ? <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p> : null}
-
-                        <div className="panel-muted">
-                          <strong>예상 원화 금액</strong>
-                          <p>~ {formatKrw(estimatedKrw)}</p>
-                        </div>
-                      </>
-                    ) : null}
+                    <label className="field">
+                      <span>날짜</span>
+                      <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                    </label>
                   </div>
                 ) : null}
 
@@ -1207,57 +1140,18 @@ export function ExpenseComposer({
                     <input value={place} onChange={(event) => setPlace(event.target.value)} placeholder="예: 공항택시, 저녁 식사" />
                   </label>
 
-                  <div className="inline-fields">
-                    <label className="field">
-                      <span>날짜</span>
-                      <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-                    </label>
-                    <label className="field">
-                      <span>결제수단 (선택)</span>
-                      <input
-                        value={paymentMethod}
-                        onChange={(event) => setPaymentMethod(event.target.value)}
-                        placeholder="예: 트래블카드, 현금"
-                      />
-                    </label>
-                  </div>
+                  <label className="field">
+                    <span>날짜</span>
+                    <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+                  </label>
                 </div>
 
                 <div className="space-y-6">
-                  {currency !== 'KRW' ? (
-                    <>
-                      <div className="quick-rate-row">
-                        <label className="field">
-                          <span>환율 (1 {currency} = KRW)</span>
-                          <input
-                            value={rateText}
-                            onChange={(event) => setRateText(event.target.value)}
-                            inputMode="decimal"
-                            placeholder="환율 입력"
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="secondary-btn refresh-rate-btn"
-                          onClick={() => void loadLatestRate(currency)}
-                          aria-label="무료 환율 새로고침"
-                          title="무료 환율 새로고침"
-                        >
-                          <RefreshCw size={18} />
-                        </button>
-                      </div>
-
-                      {rateMessage ? <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p> : null}
-
-                      <div className="panel-muted">
-                        <strong>예상 원화 금액</strong>
-                        <p>~ {formatKrw(estimatedKrw)}</p>
-                        {rate <= 0 ? <p className="hint-text">환율을 비우면 현지 화폐 기준으로 저장됩니다.</p> : null}
-                        {editingExpense && getFinalKrwAmount(editingExpense) !== null ? (
-                          <p className="hint-text">현재 실제 원화: {formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
-                        ) : null}
-                      </div>
-                    </>
+                  {editingExpense && getFinalKrwAmount(editingExpense) !== null ? (
+                    <div className="panel-muted">
+                      <strong>현재 실제 원화</strong>
+                      <p>{formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -1293,7 +1187,6 @@ export function ExpenseComposer({
                       <Users size={16} />
                       참여 인원 및 추가 부담금
                     </div>
-                    <p className="hint-text">기존 분배 기능은 삭제하지 않고 이 보조 영역에 유지합니다.</p>
                     <div className="chip-scroll">
                       {trip.members.map((member) => (
                         <button

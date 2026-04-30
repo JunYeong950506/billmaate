@@ -17,7 +17,6 @@ export interface SettlementDetailRow {
   expenseId: string;
   date: string;
   place: string;
-  paymentMethod?: string;
   payerId: string;
   originalAmount: number;
   originalCurrency: string;
@@ -29,7 +28,6 @@ export interface SettlementDetailRow {
   memberShares: Record<string, number>;
   memberDisplayShares: Record<string, number>;
   memberDisplayShareTotal: number;
-  note: string;
 }
 
 export interface SettlementResult {
@@ -42,10 +40,6 @@ const EPSILON = 1e-9;
 
 function nearZero(value: number): number {
   return Math.abs(value) < EPSILON ? 0 : value;
-}
-
-function roundTo2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function sum(values: number[]): number {
@@ -117,8 +111,6 @@ function buildDisplayShareMap(
 
 export function calculateSettlement(expenses: Expense[], members: Member[]): SettlementResult {
   const memberIds = members.map((member) => member.id);
-  const memberNameMap = new Map(members.map((member) => [member.id, member.name]));
-
   const burden: Record<string, number> = {};
   const paid: Record<string, number> = {};
 
@@ -143,23 +135,8 @@ export function calculateSettlement(expenses: Expense[], members: Member[]): Set
     }
     paid[expense.payerId] += appliedKrwAmount;
 
-    const noteParts: string[] = [];
-
-    if (applied.source === 'final') {
-      noteParts.push('실제 원화 금액 기준');
-    } else if (expense.originalCurrency === 'KRW') {
-      noteParts.push('원화 입력값 사용');
-    } else {
-      noteParts.push('예상 원화 금액 임시 사용');
-    }
-
-    if (expense.originalCurrency !== 'KRW' && applied.source === 'estimated' && estimatedKrwAmount <= EPSILON) {
-      noteParts.push('환율/예상 원화 미입력으로 0원 처리');
-    }
-
     if (expense.participants.length === 0) {
       rawShares[expense.payerId] = (rawShares[expense.payerId] ?? 0) + appliedKrwAmount;
-      noteParts.push('참여 인원이 없어 결제자에게 전액 배분');
     } else {
       const participantSet = new Set(expense.participants);
       const extraMap = new Map<string, number>();
@@ -182,7 +159,6 @@ export function calculateSettlement(expenses: Expense[], members: Member[]): Set
 
       if (rawExtraTotal > appliedKrwAmount + EPSILON && rawExtraTotal > EPSILON) {
         extraScale = appliedKrwAmount / rawExtraTotal;
-        noteParts.push('추가 할당 합계 초과로 비율 조정');
       }
 
       const adjustedExtraTotal = rawExtraTotal * extraScale;
@@ -193,21 +169,6 @@ export function calculateSettlement(expenses: Expense[], members: Member[]): Set
         const adjustedExtra = (extraMap.get(memberId) ?? 0) * extraScale;
         rawShares[memberId] = (rawShares[memberId] ?? 0) + perPerson + adjustedExtra;
       });
-
-      if (extraMap.size > 0) {
-        const extraSummary = expense.participants
-          .filter((memberId) => (extraMap.get(memberId) ?? 0) > 0)
-          .map((memberId) => {
-            const memberName = memberNameMap.get(memberId) ?? memberId;
-            const adjustedExtra = (extraMap.get(memberId) ?? 0) * extraScale;
-            return `${memberName} +${roundTo2(adjustedExtra).toFixed(2)}`;
-          })
-          .join(', ');
-
-        noteParts.push(`추가 할당 반영 (${extraSummary})`);
-      } else {
-        noteParts.push('균등 분배');
-      }
     }
 
     memberIds.forEach((memberId) => {
@@ -221,7 +182,6 @@ export function calculateSettlement(expenses: Expense[], members: Member[]): Set
       expenseId: expense.id,
       date: expense.date,
       place: expense.place,
-      paymentMethod: expense.paymentMethod,
       payerId: expense.payerId,
       originalAmount: expense.originalAmount,
       originalCurrency: expense.originalCurrency,
@@ -233,7 +193,6 @@ export function calculateSettlement(expenses: Expense[], members: Member[]): Set
       memberShares: rawShares,
       memberDisplayShares,
       memberDisplayShareTotal,
-      note: noteParts.join(' / ') || '-',
     };
   });
 

@@ -317,9 +317,9 @@ export default function App(): JSX.Element {
           >
             <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-slate-900/95 p-6 text-white shadow-2xl backdrop-blur-2xl">
               <div className="flex flex-col">
-                <span className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">최근 삭제</span>
+                <span className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">RECENTLY DELETED</span>
                 <span className="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold tracking-tight">
-                  {removedTripSnapshot.trip.name} 여행을 삭제했습니다.
+                  {removedTripSnapshot.trip.name} 여행이 삭제되었습니다.
                 </span>
               </div>
               <button
@@ -327,7 +327,7 @@ export default function App(): JSX.Element {
                 className="rounded-xl bg-indigo-600 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-95 hover:bg-indigo-500"
                 onClick={handleUndoRemoveTrip}
               >
-                복구
+                RESTORE
               </button>
             </div>
           </motion.div>
@@ -373,7 +373,7 @@ export default function App(): JSX.Element {
 
   const mobileTitle =
     mobileNav === 'new'
-      ? '새 여행 만들기'
+      ? '+New Trip'
       : mobileNav === 'settlement'
         ? selectedTrip?.name
           ? `${selectedTrip.name} 정산`
@@ -386,7 +386,7 @@ export default function App(): JSX.Element {
             ? selectedTrip?.name
               ? `${selectedTrip.name} 지출`
               : '지출'
-            : '여행 목록';
+            : 'Your Trips';
 
   const mobileSubtitle =
     selectedTrip && (mobileNav === 'record' || mobileNav === 'settlement' || mobileNav === 'settings')

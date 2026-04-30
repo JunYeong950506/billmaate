@@ -45,7 +45,6 @@ export interface Expense {
   tripId: string;
   place: string;
   date: string;
-  paymentMethod?: string;
   payerId: string;
   originalAmount: number;
   originalCurrency: CurrencyCode;
@@ -77,7 +76,6 @@ export interface NewExpenseInput {
   tripId: string;
   place: string;
   date: string;
-  paymentMethod?: string;
   payerId: string;
   originalAmount: number;
   originalCurrency: CurrencyCode;

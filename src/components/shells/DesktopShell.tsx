@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Map as MapIcon, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 import { Trip, TripSummary } from '../../types';
 
@@ -29,18 +29,18 @@ export function DesktopShell({
       <aside className="flex w-72 shrink-0 flex-col bg-slate-900">
         <div className="p-6">
           <button type="button" className="mb-10 flex items-center gap-3 text-left" onClick={onShowHome}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]">
-              <MapIcon size={18} className="text-white" />
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_0_15px_rgba(99,102,241,0.3)]">
+              <img src="/icons/icon-192.png" alt="" className="h-full w-full object-cover" />
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-white">BillMate</h1>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">여행 경비</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">TRAVEL EXPENSE</p>
             </div>
           </button>
 
           <div className="space-y-1">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">여행 목록</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Your Trips</p>
             </div>
 
             <div className="max-h-[calc(100vh-250px)] space-y-1 overflow-y-auto pr-1">
@@ -58,7 +58,7 @@ export function DesktopShell({
                   >
                     <div className="min-w-0 flex-1 pr-2">
                       <span className={`block truncate text-sm font-semibold ${isSelected ? 'text-white' : ''}`}>{trip.name}</span>
-                      <span className="block text-[10px] opacity-60">{summary?.expenseCount ?? 0}건</span>
+                      <span className="block text-[10px] opacity-60">{summary?.expenseCount ?? 0} entries</span>
                     </div>
                     {isSelected ? (
                       <div className="h-2 w-2 shrink-0 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
@@ -80,7 +80,7 @@ export function DesktopShell({
 
               {trips.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-800/30 p-4 text-center">
-                  <p className="text-xs font-medium text-slate-500">등록된 여행이 없습니다.</p>
+                  <p className="text-xs font-medium text-slate-500">No trips yet.</p>
                 </div>
               ) : null}
             </div>
@@ -93,7 +93,7 @@ export function DesktopShell({
             onClick={onShowNewTrip}
             className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-95 hover:bg-indigo-500"
           >
-            + 새 여행 만들기
+            +New Trip
           </button>
         </div>
       </aside>

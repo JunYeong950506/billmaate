@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CreditCard, Download, FileText, Home, Plus, Settings } from 'lucide-react';
+import { Calendar, CreditCard, Download, FileText, Home, Plus, Settings, Users } from 'lucide-react';
 
 import { Expense, NewExpenseInput, NewTripInput, Trip } from '../types';
-import { formatKrw } from '../utils/format';
+import { formatKrw, formatNumber2 } from '../utils/format';
 import { resolveAppliedKrwAmount } from '../utils/expenseAmount';
+import { fetchLatestRateToKrw } from '../utils/exchangeRate';
 import { getCurrencyMeta } from '../constants/currencies';
 import { ExpenseComposer } from './ExpenseComposer';
 import { ExpenseList } from './ExpenseList';
@@ -66,6 +67,7 @@ export function TripDetail({
   const [tripDefaultCurrency, setTripDefaultCurrency] = useState(trip.defaultCurrency);
   const [defaultPayerName, setDefaultPayerName] = useState('');
   const [tripEditError, setTripEditError] = useState<string | null>(null);
+  const [defaultRateInfo, setDefaultRateInfo] = useState('환율 정보를 확인하는 중입니다.');
 
   const activeTab: TripTab =
     forceTab === 'record'
@@ -112,6 +114,34 @@ export function TripDetail({
     setDefaultPayerName(tripDefaultPayerName);
     setTripEditError(null);
   }, [defaultTab, trip, tripDefaultPayerName]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (trip.defaultCurrency === 'KRW') {
+      setDefaultRateInfo('KRW 기준 통화 · 환율 조회 없음');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDefaultRateInfo(`${trip.defaultCurrency} 환율 조회 중`);
+    void fetchLatestRateToKrw(trip.defaultCurrency)
+      .then((rate) => {
+        if (!cancelled) {
+          setDefaultRateInfo(`1 ${trip.defaultCurrency} = ${formatNumber2(rate)}원`);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDefaultRateInfo('환율 조회 실패 · 정산 내역에서 실제 원화 확정');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trip.defaultCurrency]);
 
   useEffect(() => {
     if (parsedMembers.length === 0) {
@@ -161,14 +191,6 @@ export function TripDetail({
     }
   }
 
-  function handleCreateExpenseFromSettlement(): void {
-    openComposerForCreate();
-  }
-
-  function handleEditExpenseFromSettlement(expenseId: string): void {
-    handleEditExpense(expenseId);
-  }
-
   function handleSubmitTripEdit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
 
@@ -188,7 +210,7 @@ export function TripDetail({
     }
 
     if (parsedMembers.length < 2) {
-      setTripEditError('멤버는 최소 2명 이상 입력해주세요.');
+      setTripEditError('멤버를 최소 2명 이상 입력해주세요.');
       return;
     }
 
@@ -217,15 +239,15 @@ export function TripDetail({
       {layoutMode === 'desktop' && !forceTab ? (
         <div className="relative z-10 flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-12 py-3 shadow-sm">
           <div className="flex gap-10">
-            {onGoHome ? <TabButton active={false} label="home" icon={<Home size={18} />} onClick={onGoHome} /> : null}
-            <TabButton active={activeTab === 'record'} label="payment" icon={<FileText size={18} />} onClick={() => setTab('record')} />
+            {onGoHome ? <TabButton active={false} label="HOME" icon={<Home size={18} />} onClick={onGoHome} /> : null}
+            <TabButton active={activeTab === 'record'} label="PAYMENT" icon={<FileText size={18} />} onClick={() => setTab('record')} />
             <TabButton
               active={activeTab === 'settlementDetail' || activeTab === 'settlementResult'}
-              label="calculate"
+              label="CALCULATE"
               icon={<CreditCard size={18} />}
               onClick={() => setTab('settlementDetail')}
             />
-            <TabButton active={activeTab === 'settings'} label="settings" icon={<Settings size={18} />} onClick={() => setTab('settings')} />
+            <TabButton active={activeTab === 'settings'} label="SETTINGS" icon={<Settings size={18} />} onClick={() => setTab('settings')} />
           </div>
           {activeTab === 'settlementDetail' || activeTab === 'settlementResult' ? (
             <button
@@ -234,7 +256,7 @@ export function TripDetail({
               onClick={() => window.print()}
             >
               <Download size={14} />
-              PDF 내보내기
+              EXPORT PDF
             </button>
           ) : (
             <div />
@@ -256,16 +278,16 @@ export function TripDetail({
               <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-8 py-8 pb-32">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                   <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">총 지출</p>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">TOTAL PAYMENT</p>
                     <p className="text-3xl font-bold tracking-tight text-slate-900">{formatKrw(totalKrw)}</p>
                     <div className="mt-2 flex items-center gap-1.5">
                       <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                      <p className="text-[10px] font-bold uppercase tracking-tighter text-emerald-600">기록 진행 중</p>
+                      <p className="text-[10px] font-bold uppercase tracking-tighter text-emerald-600">RECORDING ACTIVE</p>
                     </div>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">지출 건수</p>
-                    <p className="text-3xl font-bold tracking-tight text-slate-900">{expenses.length}건</p>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">RECORDS</p>
+                    <p className="text-3xl font-bold tracking-tight text-slate-900">{expenses.length} entries</p>
                     <div className="mt-4 h-1.5 w-full rounded-full bg-slate-100">
                       <div
                         className="h-full rounded-full bg-indigo-500 transition-all duration-1000"
@@ -274,9 +296,10 @@ export function TripDetail({
                     </div>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">기본 통화</p>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">BASE CURRENCY</p>
                     <p className="text-3xl font-bold tracking-tight text-slate-900">{trip.defaultCurrency}</p>
                     <p className="mt-2 text-xs font-medium text-slate-400">{getCurrencyMeta(trip.defaultCurrency).name}</p>
+                    <p className="mt-3 rounded-xl bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">{defaultRateInfo}</p>
                   </div>
                 </div>
 
@@ -289,7 +312,7 @@ export function TripDetail({
                     <button
                       type="button"
                       onClick={openComposerForCreate}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-bold text-white shadow-lg transition-all active:scale-95 hover:bg-indigo-600"
+                      className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-95 hover:bg-indigo-500"
                     >
                       <Plus size={18} />
                       <span>지출 추가</span>
@@ -315,7 +338,7 @@ export function TripDetail({
                       type="button"
                       onClick={() => setTab('settlementDetail')}
                       className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-                        activeTab === 'settlementDetail' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
+                        activeTab === 'settlementDetail' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'
                       }`}
                     >
                       정산 내역
@@ -324,7 +347,7 @@ export function TripDetail({
                       type="button"
                       onClick={() => setTab('settlementResult')}
                       className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-                        activeTab === 'settlementResult' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
+                        activeTab === 'settlementResult' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'
                       }`}
                     >
                       정산 결과
@@ -338,8 +361,8 @@ export function TripDetail({
                     expenses={sortedExpenses}
                     layoutMode={layoutMode}
                     onSetExpenseFinalKrwAmount={onSetExpenseFinalKrwAmount}
-                    onRequestAddExpense={handleCreateExpenseFromSettlement}
-                    onRequestEditExpense={handleEditExpenseFromSettlement}
+                    onRequestAddExpense={openComposerForCreate}
+                    onRequestEditExpense={handleEditExpense}
                     mode={activeTab === 'settlementDetail' ? 'detail' : 'result'}
                   />
                 </div>
@@ -347,94 +370,126 @@ export function TripDetail({
             ) : null}
 
             {activeTab === 'settings' ? (
-              <div className="trip-settings-shell">
-                <section className="trip-settings-card">
-                  <div className="trip-settings-head">
-                    <h2>Trip Configuration</h2>
-                    <p>ADJUSTMENT OF CORE TRIP SETTINGS</p>
+              <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-10 py-10 pb-32">
+                <div className="space-y-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-600/20">
+                    <Settings size={24} className="text-white" />
                   </div>
+                  <h2 className="text-4xl font-bold tracking-tighter text-slate-900">Trip Configuration</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">ADJUSTMENT OF CORE TRIP SETTINGS</p>
+                </div>
 
-                  <form onSubmit={handleSubmitTripEdit} className="trip-settings-form">
-                    <div className="trip-settings-grid">
-                      <label className="trip-settings-field trip-settings-field-full">
-                        <span className="trip-settings-label">TRIP IDENTIFIER</span>
+                <form onSubmit={handleSubmitTripEdit} className="space-y-8">
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">TRIP IDENTIFIER</label>
                       <input
                         value={tripName}
                         onChange={(event) => setTripName(event.target.value)}
-                          className="trip-settings-input"
+                        className="w-full rounded-2xl border-2 border-slate-100 bg-white p-5 text-xl font-bold text-slate-900 outline-none shadow-sm transition-all placeholder:text-slate-200 focus:border-indigo-500"
                       />
-                      </label>
+                    </div>
 
-                      <div className="trip-settings-field">
-                        <span className="trip-settings-label">CURRENCY BASE</span>
-                        <div className="trip-settings-input trip-settings-currency">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">DEPARTURE</label>
+                        <div className="trip-date-field">
+                          <span className="trip-field-icon" aria-hidden="true">
+                            <Calendar size={18} className="text-slate-300" />
+                          </span>
+                          <input
+                            type="date"
+                            value={tripStartDate}
+                            onChange={(event) => setTripStartDate(event.target.value)}
+                            className="trip-date-input"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">RETURN</label>
+                        <div className="trip-date-field">
+                          <span className="trip-field-icon" aria-hidden="true">
+                            <Calendar size={18} className="text-slate-300" />
+                          </span>
+                          <input
+                            type="date"
+                            value={tripEndDate}
+                            onChange={(event) => setTripEndDate(event.target.value)}
+                            className="trip-date-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">CURRENCY BASE</label>
+                        <div className="rounded-2xl border-2 border-slate-100 bg-white p-2 shadow-sm">
                           <CurrencyPicker value={tripDefaultCurrency} onChange={setTripDefaultCurrency} modalTitle="기본 통화 선택" />
                         </div>
+                        <p className="ml-1 text-xs font-medium text-slate-400">{getCurrencyMeta(tripDefaultCurrency).name}</p>
                       </div>
 
-                      <div className="trip-settings-field">
-                        <span className="trip-settings-label">DEFAULT PAYER</span>
-                        <div className="trip-settings-input trip-settings-payer-list" role="group" aria-label="기본 결제자">
-                          {parsedMembers.map((memberName) => (
-                            <button
-                              key={memberName}
-                              type="button"
-                              onClick={() => setDefaultPayerName(memberName)}
-                              className={`trip-settings-payer-chip ${defaultPayerName === memberName ? 'trip-settings-payer-chip-active' : ''}`}
-                            >
-                              {memberName}
-                            </button>
-                          ))}
+                      <div className="space-y-2">
+                        <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">PARTICIPANTS</label>
+                        <div className="trip-textarea-field">
+                          <span className="trip-field-icon trip-field-icon-top" aria-hidden="true">
+                            <Users size={18} className="text-slate-300" />
+                          </span>
+                          <textarea
+                            rows={3}
+                            value={membersText}
+                            onChange={(event) => setMembersText(event.target.value)}
+                            className="trip-textarea-input"
+                          />
                         </div>
                       </div>
-
-                      <label className="trip-settings-field trip-settings-field-full">
-                        <span className="trip-settings-label">PARTICIPANTS</span>
-                        <textarea
-                          rows={3}
-                          value={membersText}
-                          onChange={(event) => setMembersText(event.target.value)}
-                          className="trip-settings-input trip-settings-textarea"
-                        />
-                      </label>
-
-                      <label className="trip-settings-field">
-                        <span className="trip-settings-label">DEPARTURE</span>
-                        <input
-                          type="date"
-                          value={tripStartDate}
-                          onChange={(event) => setTripStartDate(event.target.value)}
-                          className="trip-settings-input"
-                        />
-                      </label>
-
-                      <label className="trip-settings-field">
-                        <span className="trip-settings-label">RETURN</span>
-                        <input
-                          type="date"
-                          value={tripEndDate}
-                          onChange={(event) => setTripEndDate(event.target.value)}
-                          className="trip-settings-input"
-                        />
-                      </label>
                     </div>
 
-                    {tripEditError ? <div className="trip-settings-error">{tripEditError}</div> : null}
-
-                    <div className="trip-settings-actions">
-                      <button type="submit" className="trip-settings-submit">
-                        Update Settings
-                      </button>
+                    <div className="space-y-3">
+                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">DEFAULT PAYER</label>
+                      <div className="flex flex-wrap gap-2">
+                        {parsedMembers.length === 0 ? <p className="text-sm font-medium text-slate-400">멤버 입력 후 선택할 수 있습니다.</p> : null}
+                        {parsedMembers.map((memberName) => (
+                          <button
+                            key={memberName}
+                            type="button"
+                            onClick={() => setDefaultPayerName(memberName)}
+                            className={`rounded-full px-4 py-2 text-sm font-bold transition-all ${
+                              defaultPayerName === memberName
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                            }`}
+                          >
+                            {memberName}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                  </div>
 
-                    <div className="trip-settings-divider" />
-
-                    <div className="trip-settings-note">
-                      <span aria-hidden="true">!</span>
-                      <p>기본 통화를 변경하면 새 지출 입력의 기본값에 반영됩니다. 이미 기록된 지출의 예상 환율과 예상 원화 금액은 저장 시점 값으로 유지됩니다.</p>
+                  {tripEditError ? (
+                    <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700">
+                      {tripEditError}
                     </div>
-                  </form>
-                </section>
+                  ) : null}
+
+                  <div className="flex justify-end pt-4">
+                    <button
+                      type="submit"
+                      className="min-w-64 rounded-2xl bg-indigo-600 px-6 py-5 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-600/20 transition-all hover:bg-indigo-500 active:scale-95"
+                    >
+                      UPDATE SETTINGS
+                    </button>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-6">
+                    <p className="text-sm leading-7 text-slate-400">
+                      기본 통화 변경은 이후 지출 입력의 기본값에 반영됩니다. 이미 기록된 지출의 예상 환율과 예상 원화 금액은 저장 시점 값으로 유지됩니다.
+                    </p>
+                  </div>
+                </form>
               </div>
             ) : null}
           </motion.div>
@@ -445,7 +500,7 @@ export function TripDetail({
         <button
           type="button"
           onClick={openComposerForCreate}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+38px)] left-1/2 z-40 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-[20px] bg-slate-900 text-white shadow-[0_14px_28px_rgba(15,23,42,0.28)] transition-all active:scale-95"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+38px)] left-1/2 z-40 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-[20px] bg-indigo-600 text-white shadow-[0_14px_28px_rgba(79,70,229,0.28)] transition-all active:scale-95"
           aria-label="지출 추가"
         >
           <Plus size={28} />

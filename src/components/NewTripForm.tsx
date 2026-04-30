@@ -71,7 +71,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
     }
 
     if (members.length < 2) {
-      setError('멤버는 최소 2명 이상 입력해주세요.');
+      setError('멤버를 최소 2명 이상 입력해주세요.');
       return;
     }
 
@@ -111,7 +111,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="space-y-6">
           <div className="space-y-2">
-            <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">여행 이름</label>
+            <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">TRIP NAME</label>
             <input
               type="text"
               required
@@ -124,7 +124,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">출발일</label>
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">DEPARTURE</label>
               <div className="trip-date-field">
                 <span className="trip-field-icon" aria-hidden="true">
                   <Calendar size={18} className="text-slate-300" />
@@ -140,7 +140,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
             </div>
 
             <div className="space-y-2">
-              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">도착일</label>
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">RETURN</label>
               <div className="trip-date-field">
                 <span className="trip-field-icon" aria-hidden="true">
                   <Calendar size={18} className="text-slate-300" />
@@ -158,7 +158,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">기본 통화</label>
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">BASE CURRENCY</label>
               <div className="rounded-2xl border-2 border-slate-100 bg-white p-2 shadow-sm">
                 <CurrencyPicker value={defaultCurrency} onChange={setDefaultCurrency} modalTitle="기본 통화 선택" />
               </div>
@@ -166,7 +166,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
             </div>
 
             <div className="space-y-2">
-              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">멤버</label>
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">MEMBERS</label>
               <div className="trip-textarea-field">
                 <span className="trip-field-icon trip-field-icon-top" aria-hidden="true">
                   <Users size={18} className="text-slate-300" />
@@ -197,7 +197,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
           </div>
 
           <div className="space-y-3">
-            <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">기본 결제자</label>
+            <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">DEFAULT PAYER</label>
             <div className="flex flex-wrap gap-2">
               {members.length === 0 ? <p className="text-sm font-medium text-slate-400">멤버 입력 후 선택할 수 있습니다.</p> : null}
               {members.map((memberName) => (
@@ -207,7 +207,7 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
                   onClick={() => setDefaultPayerName(memberName)}
                   className={`rounded-full px-4 py-2 text-sm font-bold transition-all ${
                     defaultPayerName === memberName
-                      ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                       : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
@@ -229,16 +229,16 @@ export function NewTripForm({ onSubmit, onCancel }: NewTripFormProps): JSX.Eleme
               onClick={onCancel}
               className="flex-1 rounded-2xl border-2 border-slate-100 px-6 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 transition-all hover:bg-slate-50"
             >
-              취소
+              CANCEL
             </button>
           ) : null}
 
           <button
             type="submit"
-            className="flex-[2] rounded-2xl bg-slate-900 px-6 py-5 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-slate-900/10 transition-all hover:bg-indigo-600 active:scale-95"
+            className="flex-[2] rounded-2xl bg-indigo-600 px-6 py-5 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-600/20 transition-all hover:bg-indigo-500 active:scale-95"
           >
             <span className="inline-flex items-center gap-2">
-              여행 만들기
+              DEPLOY
               <ArrowRight size={18} />
             </span>
           </button>
