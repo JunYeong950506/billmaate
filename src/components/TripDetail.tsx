@@ -448,7 +448,7 @@ export function TripDetail({
         <button
           type="button"
           onClick={openComposerForCreate}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] left-1/2 z-40 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-[22px] bg-slate-900 text-white shadow-[0_14px_28px_rgba(15,23,42,0.28)] transition-all active:scale-95"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+38px)] left-1/2 z-40 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-[20px] bg-slate-900 text-white shadow-[0_14px_28px_rgba(15,23,42,0.28)] transition-all active:scale-95"
           aria-label="지출 추가"
         >
           <Plus size={28} />

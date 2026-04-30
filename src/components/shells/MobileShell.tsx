@@ -28,6 +28,8 @@ export function MobileShell({
   onChangeNav,
   children,
 }: MobileShellProps): JSX.Element {
+  const showCenterAddSlot = activeNav === 'record' && canOpenRecord;
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-50 font-sans text-slate-900">
       <header
@@ -53,7 +55,11 @@ export function MobileShell({
 
       <main className="relative flex-1 overflow-y-auto bg-slate-50">{children}</main>
 
-      <nav className="pb-safe-bottom flex h-[84px] shrink-0 items-center justify-around border-t border-slate-200 bg-white px-4 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
+      <nav
+        className={`pb-safe-bottom grid h-[92px] shrink-0 items-center border-t border-slate-200 bg-white px-4 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] ${
+          showCenterAddSlot ? 'grid-cols-5' : 'grid-cols-4'
+        }`}
+      >
         <NavItem label="홈" icon={<Home size={22} />} active={activeNav === 'home'} onClick={() => onChangeNav('home')} />
         <NavItem
           label="지출"
@@ -62,6 +68,7 @@ export function MobileShell({
           onClick={() => onChangeNav('record')}
           disabled={!canOpenRecord}
         />
+        {showCenterAddSlot ? <div aria-hidden="true" className="h-16" /> : null}
         <NavItem
           label="정산"
           icon={<Wallet size={22} />}
@@ -95,7 +102,7 @@ function NavItem({ label, icon, active, disabled, onClick }: NavItemProps): JSX.
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex min-w-[58px] flex-col items-center gap-1 transition-all ${
+      className={`flex w-full flex-col items-center gap-1 transition-all ${
         disabled ? 'opacity-20 grayscale' : active ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-500'
       }`}
     >
