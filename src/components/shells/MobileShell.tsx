@@ -60,9 +60,9 @@ export function MobileShell({
           showCenterAddSlot ? 'grid-cols-5' : 'grid-cols-4'
         }`}
       >
-        <NavItem label="홈" icon={<Home size={22} />} active={activeNav === 'home'} onClick={() => onChangeNav('home')} />
+        <NavItem label="home" icon={<Home size={22} />} active={activeNav === 'home'} onClick={() => onChangeNav('home')} />
         <NavItem
-          label="지출"
+          label="payment"
           icon={<FileText size={22} />}
           active={activeNav === 'record'}
           onClick={() => onChangeNav('record')}
@@ -70,14 +70,14 @@ export function MobileShell({
         />
         {showCenterAddSlot ? <div aria-hidden="true" className="h-16" /> : null}
         <NavItem
-          label="정산"
+          label="calculate"
           icon={<Wallet size={22} />}
           active={activeNav === 'settlement'}
           onClick={() => onChangeNav('settlement')}
           disabled={!canOpenSettlement}
         />
         <NavItem
-          label="설정"
+          label="settings"
           icon={<Settings size={22} />}
           active={activeNav === 'settings'}
           onClick={() => onChangeNav('settings')}

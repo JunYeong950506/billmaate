@@ -740,15 +740,14 @@ export function ExpenseComposer({
   }
 
   return (
-    <section className="panel">
+    <section className="panel expense-composer-panel">
       <div className="panel-header">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+          <div className="expense-composer-head-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl">
             <ReceiptText size={20} />
           </div>
           <div className="min-w-0">
             <h3 className="truncate">지출 입력</h3>
-            <p className="hint-text">직접 입력을 중심으로 빠르게 기록하고, 보조 기능은 같은 화면에서 이어서 사용합니다.</p>
           </div>
         </div>
         {editingExpense ? <span className="editing-pill">수정 중</span> : null}

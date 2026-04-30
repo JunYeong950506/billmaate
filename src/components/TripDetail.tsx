@@ -217,15 +217,15 @@ export function TripDetail({
       {layoutMode === 'desktop' && !forceTab ? (
         <div className="relative z-10 flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-12 py-3 shadow-sm">
           <div className="flex gap-10">
-            {onGoHome ? <TabButton active={false} label="홈" icon={<Home size={18} />} onClick={onGoHome} /> : null}
-            <TabButton active={activeTab === 'record'} label="지출" icon={<FileText size={18} />} onClick={() => setTab('record')} />
+            {onGoHome ? <TabButton active={false} label="home" icon={<Home size={18} />} onClick={onGoHome} /> : null}
+            <TabButton active={activeTab === 'record'} label="payment" icon={<FileText size={18} />} onClick={() => setTab('record')} />
             <TabButton
               active={activeTab === 'settlementDetail' || activeTab === 'settlementResult'}
-              label="정산"
+              label="calculate"
               icon={<CreditCard size={18} />}
               onClick={() => setTab('settlementDetail')}
             />
-            <TabButton active={activeTab === 'settings'} label="설정" icon={<Settings size={18} />} onClick={() => setTab('settings')} />
+            <TabButton active={activeTab === 'settings'} label="settings" icon={<Settings size={18} />} onClick={() => setTab('settings')} />
           </div>
           {activeTab === 'settlementDetail' || activeTab === 'settlementResult' ? (
             <button
@@ -347,98 +347,94 @@ export function TripDetail({
             ) : null}
 
             {activeTab === 'settings' ? (
-              <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-10 py-10 pb-32">
-                <div className="space-y-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-900/10">
-                    <Settings size={22} className="text-white" />
+              <div className="trip-settings-shell">
+                <section className="trip-settings-card">
+                  <div className="trip-settings-head">
+                    <h2>Trip Configuration</h2>
+                    <p>ADJUSTMENT OF CORE TRIP SETTINGS</p>
                   </div>
-                  <h2 className="text-4xl font-bold tracking-tighter text-slate-900">여행 설정</h2>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">여행 기본 정보를 수정합니다.</p>
-                </div>
 
-                <form onSubmit={handleSubmitTripEdit} className="space-y-8">
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">여행 이름</label>
+                  <form onSubmit={handleSubmitTripEdit} className="trip-settings-form">
+                    <div className="trip-settings-grid">
+                      <label className="trip-settings-field trip-settings-field-full">
+                        <span className="trip-settings-label">TRIP IDENTIFIER</span>
                       <input
                         value={tripName}
                         onChange={(event) => setTripName(event.target.value)}
-                        className="w-full rounded-2xl border-2 border-slate-100 bg-white p-5 text-xl font-bold text-slate-900 outline-none transition-all shadow-sm focus:border-indigo-500"
+                          className="trip-settings-input"
                       />
-                    </div>
+                      </label>
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">출발일</label>
+                      <div className="trip-settings-field">
+                        <span className="trip-settings-label">CURRENCY BASE</span>
+                        <div className="trip-settings-input trip-settings-currency">
+                          <CurrencyPicker value={tripDefaultCurrency} onChange={setTripDefaultCurrency} modalTitle="기본 통화 선택" />
+                        </div>
+                      </div>
+
+                      <div className="trip-settings-field">
+                        <span className="trip-settings-label">DEFAULT PAYER</span>
+                        <div className="trip-settings-input trip-settings-payer-list" role="group" aria-label="기본 결제자">
+                          {parsedMembers.map((memberName) => (
+                            <button
+                              key={memberName}
+                              type="button"
+                              onClick={() => setDefaultPayerName(memberName)}
+                              className={`trip-settings-payer-chip ${defaultPayerName === memberName ? 'trip-settings-payer-chip-active' : ''}`}
+                            >
+                              {memberName}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <label className="trip-settings-field trip-settings-field-full">
+                        <span className="trip-settings-label">PARTICIPANTS</span>
+                        <textarea
+                          rows={3}
+                          value={membersText}
+                          onChange={(event) => setMembersText(event.target.value)}
+                          className="trip-settings-input trip-settings-textarea"
+                        />
+                      </label>
+
+                      <label className="trip-settings-field">
+                        <span className="trip-settings-label">DEPARTURE</span>
                         <input
                           type="date"
                           value={tripStartDate}
                           onChange={(event) => setTripStartDate(event.target.value)}
-                          className="w-full rounded-2xl border-2 border-slate-100 bg-white p-5 font-bold outline-none shadow-sm focus:border-indigo-500"
+                          className="trip-settings-input"
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">도착일</label>
+                      </label>
+
+                      <label className="trip-settings-field">
+                        <span className="trip-settings-label">RETURN</span>
                         <input
                           type="date"
                           value={tripEndDate}
                           onChange={(event) => setTripEndDate(event.target.value)}
-                          className="w-full rounded-2xl border-2 border-slate-100 bg-white p-5 font-bold outline-none shadow-sm focus:border-indigo-500"
+                          className="trip-settings-input"
                         />
-                      </div>
+                      </label>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">멤버</label>
-                      <textarea
-                        rows={4}
-                        value={membersText}
-                        onChange={(event) => setMembersText(event.target.value)}
-                        className="w-full rounded-2xl border-2 border-slate-100 bg-white p-5 font-bold outline-none shadow-sm focus:border-indigo-500"
-                      />
+                    {tripEditError ? <div className="trip-settings-error">{tripEditError}</div> : null}
+
+                    <div className="trip-settings-actions">
+                      <button type="submit" className="trip-settings-submit">
+                        Update Settings
+                      </button>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">기본 통화</label>
-                      <div className="rounded-2xl border-2 border-slate-100 bg-white p-2 shadow-sm">
-                        <CurrencyPicker value={tripDefaultCurrency} onChange={setTripDefaultCurrency} modalTitle="기본 통화 선택" />
-                      </div>
+                    <div className="trip-settings-divider" />
+
+                    <div className="trip-settings-note">
+                      <span aria-hidden="true">!</span>
+                      <p>기본 통화를 변경하면 새 지출 입력의 기본값에 반영됩니다. 이미 기록된 지출의 예상 환율과 예상 원화 금액은 저장 시점 값으로 유지됩니다.</p>
                     </div>
-
-                    <div className="space-y-3">
-                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-slate-400">기본 결제자</label>
-                      <div className="flex flex-wrap gap-2">
-                        {parsedMembers.map((memberName) => (
-                          <button
-                            key={memberName}
-                            type="button"
-                            onClick={() => setDefaultPayerName(memberName)}
-                            className={`rounded-full px-4 py-2 text-sm font-bold transition-all ${
-                              defaultPayerName === memberName
-                                ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
-                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                            }`}
-                          >
-                            {memberName}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {tripEditError ? (
-                    <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700">{tripEditError}</div>
-                  ) : null}
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="rounded-xl bg-slate-900 px-10 py-3 font-bold text-white shadow-xl shadow-slate-900/10 transition-all active:scale-95 hover:bg-slate-800"
-                    >
-                      여행 정보 저장
-                    </button>
-                  </div>
-                </form>
+                  </form>
+                </section>
               </div>
             ) : null}
           </motion.div>
@@ -470,7 +466,7 @@ export function TripDetail({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               onClick={(event) => event.stopPropagation()}
-              className={`w-full overflow-y-auto border border-white/20 bg-white shadow-2xl ${
+              className={`expense-composer-dialog w-full overflow-y-auto border border-white/20 bg-white shadow-2xl ${
                 layoutMode === 'mobile' ? 'max-h-[88vh] rounded-[28px] p-5' : 'max-h-[90vh] max-w-4xl rounded-[32px] p-8'
               }`}
             >

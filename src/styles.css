@@ -1898,6 +1898,9 @@ select {
 }
 
 .refresh-rate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 44px;
   min-width: 44px;
   height: 44px;
@@ -1905,6 +1908,14 @@ select {
   font-size: 20px;
   font-weight: 700;
   line-height: 1;
+  flex-shrink: 0;
+  border-radius: 16px;
+}
+
+.refresh-rate-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .foreign-currency-row {
@@ -2541,6 +2552,238 @@ select {
   padding: 12px;
   background: var(--bg-main);
 }
+
+.trip-settings-shell {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 32px 96px;
+}
+
+.trip-settings-card {
+  border: 1px solid #dde5f0;
+  border-radius: 34px;
+  background: #ffffff;
+  padding: 56px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+}
+
+.trip-settings-head {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 56px;
+}
+
+.trip-settings-head h2 {
+  margin: 0;
+  color: #101827;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.trip-settings-head p,
+.trip-settings-label {
+  color: #94a2ba;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.trip-settings-form {
+  display: grid;
+  gap: 28px;
+}
+
+.trip-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 32px;
+}
+
+.trip-settings-field {
+  display: grid;
+  gap: 8px;
+}
+
+.trip-settings-field-full {
+  grid-column: 1 / -1;
+}
+
+.trip-settings-input {
+  min-height: 80px;
+  border: 0;
+  border-radius: 16px;
+  background: #f5f7fa;
+  padding: 22px 24px;
+  color: #111827;
+  font-size: 22px;
+  font-weight: 800;
+  box-shadow: none;
+  outline: none;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.trip-settings-input:focus,
+.trip-settings-input:focus-within {
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
+}
+
+.trip-settings-textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.trip-settings-currency {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+}
+
+.trip-settings-currency .currency-picker,
+.trip-settings-currency .currency-picker-trigger {
+  width: 100%;
+}
+
+.trip-settings-currency .currency-picker-trigger {
+  min-height: 58px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.trip-settings-currency .currency-picker-trigger:hover,
+.trip-settings-currency .currency-picker-trigger:focus-visible {
+  border: 0;
+  box-shadow: none;
+}
+
+.trip-settings-payer-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trip-settings-payer-chip {
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 8px 14px;
+  color: #60708c;
+  font-size: 14px;
+  font-weight: 800;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.trip-settings-payer-chip:hover {
+  background: #e9edf4;
+  color: #111827;
+}
+
+.trip-settings-payer-chip-active {
+  background: #111827;
+  color: #ffffff;
+}
+
+.trip-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+.trip-settings-submit {
+  min-width: 280px;
+  border: 0;
+  border-radius: 16px;
+  background: #111827;
+  padding: 20px 28px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.trip-settings-submit:hover {
+  background: #1f2937;
+  transform: translateY(-1px);
+}
+
+.trip-settings-error {
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  background: #fff7ed;
+  padding: 14px 16px;
+  color: #c2410c;
+  font-weight: 800;
+}
+
+.trip-settings-divider {
+  height: 1px;
+  background: #e9eef5;
+  margin-top: 24px;
+}
+
+.trip-settings-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.trip-settings-note span {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #fff4e8;
+  color: #ff6b00;
+  font-weight: 900;
+}
+
+.trip-settings-note p {
+  margin: 0;
+  color: #8a9ab7;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+@media (max-width: 767px) {
+  .trip-settings-shell {
+    padding: 12px 12px 96px;
+  }
+
+  .trip-settings-card {
+    border-radius: 24px;
+    padding: 28px 20px;
+  }
+
+  .trip-settings-head {
+    margin-bottom: 32px;
+  }
+
+  .trip-settings-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .trip-settings-input {
+    min-height: 64px;
+    padding: 18px;
+    font-size: 18px;
+  }
+
+  .trip-settings-submit {
+    width: 100%;
+    min-width: 0;
+  }
+}
 /* expense composer popup overrides */
 .sheet-overlay.expense-composer-overlay {
   align-items: center;
@@ -2561,6 +2804,75 @@ select {
 
 .bottom-sheet.expense-composer-sheet .bottom-sheet-body {
   overscroll-behavior: contain;
+}
+
+.expense-composer-dialog {
+  border-color: rgba(226, 232, 240, 0.96);
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, #ffffff 34%),
+    #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+
+.expense-composer-panel {
+  border-color: #e2e8f0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.expense-composer-head-icon {
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(160deg, #111827 0%, #1f2937 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16);
+}
+
+.expense-composer-panel .tab-btn-active,
+.expense-composer-panel .primary-btn,
+.expense-composer-panel .chip.chip-active,
+.expense-composer-panel .quick-step-dot-active {
+  border-color: #111827;
+  background: linear-gradient(160deg, #111827 0%, #1f2937 58%, #312e81 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+}
+
+.expense-composer-panel .primary-btn:hover {
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 54%, #3730a3 100%);
+}
+
+.expense-composer-panel .secondary-btn {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.expense-composer-panel .secondary-btn:hover,
+.expense-composer-panel .text-btn:hover {
+  color: #111827;
+  background: #e2e8f0;
+}
+
+.expense-composer-panel .prototype-pane,
+.expense-composer-panel .panel-muted {
+  border-color: #e2e8f0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.expense-composer-panel .amount-input-wrap b,
+.expense-composer-panel .expense-value-symbol,
+.expense-composer-panel .foreign-currency-krw-btn-active {
+  color: #111827;
+}
+
+.expense-composer-panel .expense-value-input-shell:focus-within {
+  border-color: #475569;
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.1);
+}
+
+.expense-composer-panel .expense-value-currency .currency-picker-trigger:hover,
+.expense-composer-panel .expense-value-currency .currency-picker-trigger:focus-visible {
+  border-color: #475569;
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.08);
 }
 
 .sheet-overlay.currency-picker-overlay {
