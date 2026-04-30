@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
-import { ChevronLeft, FileText, Home, MoreHorizontal, Plus, Wallet } from 'lucide-react';
+import { ChevronLeft, FileText, Home, Settings, Wallet } from 'lucide-react';
 
-type MobileNav = 'home' | 'record' | 'settlement' | 'new';
+type MobileNav = 'home' | 'record' | 'settlement' | 'settings' | 'new';
 
 interface MobileShellProps {
   title: string;
@@ -11,6 +11,7 @@ interface MobileShellProps {
   activeNav: MobileNav;
   canOpenRecord: boolean;
   canOpenSettlement: boolean;
+  canOpenSettings: boolean;
   onChangeNav: (nav: MobileNav) => void;
   children: ReactNode;
 }
@@ -23,14 +24,18 @@ export function MobileShell({
   activeNav,
   canOpenRecord,
   canOpenSettlement,
+  canOpenSettings,
   onChangeNav,
   children,
 }: MobileShellProps): JSX.Element {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50 text-slate-900 font-sans">
-      <header className="safe-top shrink-0 border-b border-slate-200 bg-white px-6 pb-6 pt-12 shadow-sm">
-        <div className="mb-4 flex h-8 items-center justify-between">
-          {canBack ? (
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-50 font-sans text-slate-900">
+      <header
+        className="safe-top shrink-0 border-b border-slate-200 bg-white px-6 pb-4 shadow-sm"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+      >
+        {canBack ? (
+          <div className="mb-3 flex items-center">
             <button
               type="button"
               onClick={onBack}
@@ -38,55 +43,39 @@ export function MobileShell({
             >
               <ChevronLeft size={24} className="text-slate-600" />
             </button>
-          ) : (
-            <div className="w-10" />
-          )}
-
-          <div className="flex items-center gap-1 opacity-20">
-            <div className="h-1 w-1 rounded-full bg-slate-900" />
-            <div className="h-1 w-1 rounded-full bg-slate-900" />
-            <div className="h-1 w-1 rounded-full bg-slate-900" />
           </div>
-
-          <div className="w-10" />
-        </div>
-
+        ) : null}
         <div>
           <h1 className="line-clamp-1 text-xl font-bold tracking-tight text-slate-800">{title}</h1>
-          {subtitle ? <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{subtitle}</p> : null}
+          {subtitle ? <p className="mt-1 text-[10px] font-bold tracking-wider text-slate-400">{subtitle}</p> : null}
         </div>
       </header>
 
       <main className="relative flex-1 overflow-y-auto bg-slate-50">{children}</main>
 
       <nav className="pb-safe-bottom flex h-[84px] shrink-0 items-center justify-around border-t border-slate-200 bg-white px-4 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
-        <NavItem label="Home" icon={<Home size={22} />} active={activeNav === 'home'} onClick={() => onChangeNav('home')} />
+        <NavItem label="홈" icon={<Home size={22} />} active={activeNav === 'home'} onClick={() => onChangeNav('home')} />
         <NavItem
-          label="Records"
+          label="지출"
           icon={<FileText size={22} />}
           active={activeNav === 'record'}
           onClick={() => onChangeNav('record')}
           disabled={!canOpenRecord}
         />
-        <div className="relative -mt-10">
-          <button
-            type="button"
-            onClick={() => onChangeNav('new')}
-            className={`flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-xl transition-all active:scale-90 ${
-              activeNav === 'new' ? 'bg-indigo-700' : 'bg-slate-900'
-            }`}
-          >
-            <Plus size={28} />
-          </button>
-        </div>
         <NavItem
-          label="Settle"
+          label="정산"
           icon={<Wallet size={22} />}
           active={activeNav === 'settlement'}
           onClick={() => onChangeNav('settlement')}
           disabled={!canOpenSettlement}
         />
-        <NavItem label="More" icon={<MoreHorizontal size={22} />} active={false} onClick={() => {}} disabled />
+        <NavItem
+          label="설정"
+          icon={<Settings size={22} />}
+          active={activeNav === 'settings'}
+          onClick={() => onChangeNav('settings')}
+          disabled={!canOpenSettings}
+        />
       </nav>
     </div>
   );
@@ -106,12 +95,12 @@ function NavItem({ label, icon, active, disabled, onClick }: NavItemProps): JSX.
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex flex-col items-center gap-1 transition-all ${
-        disabled ? 'opacity-10 grayscale' : active ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-500'
+      className={`flex min-w-[58px] flex-col items-center gap-1 transition-all ${
+        disabled ? 'opacity-20 grayscale' : active ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-500'
       }`}
     >
       <div className={`rounded-xl p-1.5 transition-colors ${active ? 'bg-indigo-50' : ''}`}>{icon}</div>
-      <span className="text-[10px] font-bold uppercase tracking-tight">{label}</span>
+      <span className="text-[10px] font-bold tracking-tight">{label}</span>
     </button>
   );
 }

@@ -1,9 +1,10 @@
 ﻿import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { PencilLine } from 'lucide-react';
 
 import { Expense, Trip } from '../types';
-import { getEstimatedKrwAmount, getFinalKrwAmount, resolveAppliedKrwAmount } from '../utils/expenseAmount';
-import { formatKrw, formatNumber2, todayIso } from '../utils/format';
+import { getFinalKrwAmount } from '../utils/expenseAmount';
+import { formatDateRange, formatKrw, formatNumber2 } from '../utils/format';
 import { calculateSettlement } from '../utils/settlement';
 
 type SettlementViewMode = 'all' | 'detail' | 'result';
@@ -22,6 +23,17 @@ interface NetState {
   className: 'status-positive' | 'status-negative' | 'status-neutral';
   label: string;
 }
+
+interface BreakdownItem {
+  key: string;
+  label: string;
+  amount: number;
+  chartValue: number;
+  ratio: number;
+  color: string;
+}
+
+const BREAKDOWN_COLORS = ['#6366f1', '#1e293b', '#f97316', '#3b82f6', '#8b5cf6', '#0ea5e9', '#10b981'];
 
 function sortExpenses(expenses: Expense[]): Expense[] {
   return [...expenses].sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
@@ -85,7 +97,6 @@ export function SettlementView({
   onRequestEditExpense,
   mode = 'all',
 }: SettlementViewProps): JSX.Element {
-  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [editMessage, setEditMessage] = useState<string | null>(null);
   const [finalDraftMap, setFinalDraftMap] = useState<Record<string, string>>({});
 
@@ -97,11 +108,43 @@ export function SettlementView({
     [trip.members],
   );
 
+  const totalAppliedKrw = useMemo(
+    () => result.detailRows.reduce((sum, row) => sum + row.appliedKrwAmount, 0),
+    [result.detailRows],
+  );
+
   const hasForeignExpense = useMemo(
     () => sortedExpenses.some((expense) => expense.originalCurrency !== 'KRW'),
     [sortedExpenses],
   );
   const compactKrwView = trip.defaultCurrency === 'KRW' && !hasForeignExpense;
+
+  const breakdownItems = useMemo<BreakdownItem[]>(() => {
+    const paidLines = result.lines.filter((line) => line.paid > 0);
+    if (paidLines.length === 0 || totalAppliedKrw <= 0) {
+      return [
+        {
+          key: 'empty',
+          label: '기록 없음',
+          amount: 0,
+          chartValue: 1,
+          ratio: 1,
+          color: '#d9dff0',
+        },
+      ];
+    }
+
+    return [...paidLines]
+      .sort((a, b) => b.paid - a.paid)
+      .map((line, index) => ({
+        key: line.memberId,
+        label: nameMap.get(line.memberId) ?? line.memberId,
+        amount: line.paid,
+        chartValue: line.paid,
+        ratio: line.paid / totalAppliedKrw,
+        color: BREAKDOWN_COLORS[index % BREAKDOWN_COLORS.length],
+      }));
+  }, [nameMap, result.lines, totalAppliedKrw]);
 
   useEffect(() => {
     const nextDraftMap: Record<string, string> = {};
@@ -154,149 +197,103 @@ export function SettlementView({
     setEditMessage(null);
   }
 
-  function handleExport(): void {
-    const expenseHeader = [
-      '날짜',
-      '항목',
-      '결제수단',
-      '결제자',
-      '원래 금액',
-      '통화',
-      '환율',
-      '예상 원화 금액',
-      '실제 원화 금액',
-      '정산 기준 금액',
-      '기준 상태',
-      '참여 인원',
-      '추가 할당',
-    ];
-
-    const expenseRows = sortedExpenses.map((expense) => {
-      const estimatedKrwAmount = getEstimatedKrwAmount(expense);
-      const finalKrwAmount = getFinalKrwAmount(expense);
-      const applied = resolveAppliedKrwAmount(expense);
-
-      return [
-        expense.date,
-        expense.place,
-        expense.paymentMethod ?? '-',
-        nameMap.get(expense.payerId) ?? expense.payerId,
-        formatNumber2(expense.originalAmount),
-        expense.originalCurrency,
-        expense.exchangeRate ? formatNumber2(expense.exchangeRate) : '-',
-        formatNumber2(estimatedKrwAmount),
-        finalKrwAmount === null ? '-' : formatNumber2(finalKrwAmount),
-        formatNumber2(applied.amount),
-        applied.source === 'final' ? '실제 확정 금액' : '예상 금액(임시)',
-        expense.participants.map((memberId) => nameMap.get(memberId) ?? memberId).join(', '),
-        expense.extraAllocations.length > 0
-          ? expense.extraAllocations
-              .map(
-                (allocation) =>
-                  `${nameMap.get(allocation.memberId) ?? allocation.memberId} +${formatNumber2(allocation.amount)}`,
-              )
-              .join(' / ')
-          : '-',
-      ];
-    });
-
-    const settlementDetailHeader = [
-      '날짜',
-      '항목',
-      '결제수단',
-      '결제자',
-      '원래 금액',
-      '예상 원화',
-      '실제 원화',
-      '정산 기준 금액',
-      '차이(실제-예상)',
-      ...trip.members.map((member) => `${member.name} 부담금`),
-      '부담금 합계',
-      '비고',
-    ];
-
-    const settlementDetailRows = result.detailRows.map((row) => [
-      row.date,
-      row.place,
-      row.paymentMethod ?? '-',
-      nameMap.get(row.payerId) ?? row.payerId,
-      `${row.originalCurrency} ${formatNumber2(row.originalAmount)}`,
-      formatNumber2(row.estimatedKrwAmount),
-      row.finalKrwAmount === null ? '-' : formatNumber2(row.finalKrwAmount),
-      formatNumber2(row.appliedKrwAmount),
-      row.differenceFromEstimated === null ? '-' : formatNumber2(row.differenceFromEstimated),
-      ...trip.members.map((member) => formatNumber2(row.memberDisplayShares[member.id] ?? 0)),
-      formatNumber2(row.memberDisplayShareTotal),
-      row.note,
-    ]);
-
-    const finalSummaryHeader = ['이름', '총 결제금액', '총 부담금액', '차액(net)', '상태'];
-    const finalSummaryRows = result.lines.map((line) => {
-      const state = getNetState(line.net);
-      return [
-        nameMap.get(line.memberId) ?? line.memberId,
-        formatNumber2(line.paid),
-        formatNumber2(line.burden),
-        formatNumber2(line.net),
-        state.label,
-      ];
-    });
-
-    const transferHeader = ['보내는 사람', '받는 사람', '금액'];
-    const transferRows =
-      result.transfers.length === 0
-        ? [['없음', '없음', '0.00']]
-        : result.transfers.map((transfer) => [
-            nameMap.get(transfer.from) ?? transfer.from,
-            nameMap.get(transfer.to) ?? transfer.to,
-            formatNumber2(transfer.amount),
-          ]);
-
-    const wb = XLSX.utils.book_new();
-
-    const wsExpense = XLSX.utils.aoa_to_sheet([expenseHeader, ...expenseRows]);
-    const wsSettlementDetail = XLSX.utils.aoa_to_sheet([settlementDetailHeader, ...settlementDetailRows]);
-    const wsFinal = XLSX.utils.aoa_to_sheet([
-      ['송금 요약'],
-      transferHeader,
-      ...transferRows,
-      [],
-      ['인원별 정산'],
-      finalSummaryHeader,
-      ...finalSummaryRows,
-    ]);
-
-    XLSX.utils.book_append_sheet(wb, wsExpense, '지출 내역');
-    XLSX.utils.book_append_sheet(wb, wsSettlementDetail, '정산 내역');
-    XLSX.utils.book_append_sheet(wb, wsFinal, '최종 정산 결과');
-
-    XLSX.writeFile(wb, `${trip.name}-settlement-${todayIso()}.xlsx`);
-    setExportMessage('지출 내역/정산 내역/최종 정산 결과 3개 시트를 내보냈습니다.');
-  }
-
-  const headerTitle = mode === 'detail' ? '정산 내역' : mode === 'result' ? '정산 결과' : '정산';
   const showResultSection = mode !== 'detail';
   const showDetailSection = mode !== 'result';
 
   return (
-    <section className="panel settlement-panel">
-      <div className="panel-header settlement-head">
-        <h3>{headerTitle}</h3>
-        <button type="button" className="primary-btn" onClick={handleExport}>
-          엑셀 내보내기(.xlsx)
-        </button>
-      </div>
+    <section className="panel settlement-panel space-y-6">
+      {showDetailSection ? (
+        <section className="space-y-10 bg-slate-50/60 px-6 py-6 md:px-8 md:py-8">
+          <div className="space-y-1">
+            <h2 className="text-4xl font-black tracking-tight text-slate-900 md:text-5xl">{trip.name}</h2>
+            <p className="text-sm font-bold tracking-wide text-slate-400">{formatDateRange(trip.startDate, trip.endDate)}</p>
+          </div>
 
-      <p className="hint-text">
-        {showResultSection && showDetailSection
-          ? '상단에서 송금 요약과 인원별 차액을 확인하고, 하단에서 지출별 금액 확정/분배 근거를 검토할 수 있습니다.'
-          : showResultSection
-            ? '송금 요약과 인원별 차액을 확인해 최종 정산 결과를 검토하세요.'
-            : compactKrwView
-              ? '기본 통화가 원화인 여행은 지출별 분배 근거를 중심으로 검토할 수 있습니다.'
-              : '지출별 실제 원화 금액을 확정하고 멤버별 분배 근거를 검토하세요.'}
-      </p>
-      {exportMessage ? <p className="hint-text">{exportMessage}</p> : null}
+          <div className="-mx-6 border-t border-slate-200 md:-mx-8" />
+
+          <div className="space-y-2 text-center">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">최종 정산</h3>
+            <div className="text-5xl font-black tracking-tighter text-slate-900 md:text-7xl">
+              <span className="mr-2 text-indigo-600">₩</span>
+              {formatNumber2(totalAppliedKrw)}
+            </div>
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-slate-400">
+              총 {sortedExpenses.length}건{trip.members.length > 0 ? ` · ${trip.members.length}명` : ''}
+            </p>
+          </div>
+
+          <div className="group relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm md:grid md:grid-cols-2 md:items-center md:gap-12 md:p-10">
+            <div className="absolute -right-16 -top-16 h-32 w-32 rounded-full bg-indigo-50/70 transition-transform duration-1000 group-hover:scale-150" />
+
+            <div className="relative z-10 h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    key={`payment-detail-donut-${trip.id}-${sortedExpenses.length}-${totalAppliedKrw}`}
+                    data={breakdownItems}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={105}
+                    paddingAngle={4}
+                    dataKey="chartValue"
+                    stroke="none"
+                    isAnimationActive
+                    animationDuration={900}
+                    animationEasing="ease-out"
+                  >
+                    {breakdownItems.map((entry) => (
+                      <Cell key={entry.key} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(_, __, item) => formatKrw(((item?.payload as BreakdownItem | undefined)?.amount ?? 0))}
+                    contentStyle={{
+                      borderRadius: '16px',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                      fontWeight: 'bold',
+                      fontSize: '12px',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-slate-100 bg-white/90 text-center shadow-inner backdrop-blur-sm">
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-300">합계</span>
+                  <span className="mt-1 text-base font-black text-indigo-600">100%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative z-10 mt-8 space-y-6 md:mt-0">
+              <h4 className="flex items-center gap-2 border-b border-slate-100 pb-4 text-lg font-bold text-slate-800">
+                <div className="h-4 w-1.5 rounded-full bg-indigo-600" />
+                결제자별 분포
+              </h4>
+              <div className="grid gap-3">
+                {breakdownItems.map((item) => (
+                  <div key={item.key} className="flex items-center justify-between rounded-xl px-3 py-3 transition-colors hover:bg-slate-50">
+                    <div className="flex items-center gap-3">
+                      <div className="h-2.5 w-2.5 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
+                      <span className="text-lg font-bold text-slate-700">{item.label}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="whitespace-nowrap font-mono text-lg font-black text-slate-900">
+                        ₩{formatNumber2(item.amount)}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-tight text-slate-300">
+                        {item.amount > 0 ? `전체의 ${(item.ratio * 100).toFixed(1)}%` : '지출 없음'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {editMessage ? <p className="error-text">{editMessage}</p> : null}
 
       {showResultSection ? (
@@ -355,10 +352,10 @@ export function SettlementView({
             <table className="settlement-detail-table">
               <thead>
                 <tr>
+                  <th>수정</th>
                   <th>날짜</th>
                   <th>항목</th>
                   <th>결제수단</th>
-                  <th>지출 수정</th>
                   <th>결제자</th>
                   <th>금액</th>
                   {compactKrwView ? null : <th>실제 원화 입력</th>}
@@ -386,18 +383,24 @@ export function SettlementView({
 
                   return (
                     <tr key={row.expenseId}>
-                      <td>{row.date}</td>
-                      <td>{row.place}</td>
-                      <td>{row.paymentMethod ?? '-'}</td>
                       <td>
                         {onRequestEditExpense ? (
-                          <button type="button" className="text-btn" onClick={() => onRequestEditExpense(row.expenseId)}>
-                            수정
+                          <button
+                            type="button"
+                            className="settlement-edit-icon"
+                            onClick={() => onRequestEditExpense(row.expenseId)}
+                            aria-label={`${row.place} 지출 수정`}
+                            title="지출 수정"
+                          >
+                            <PencilLine size={15} />
                           </button>
                         ) : (
                           '-'
                         )}
                       </td>
+                      <td>{row.date}</td>
+                      <td>{row.place}</td>
+                      <td>{row.paymentMethod ?? '-'}</td>
                       <td>{nameMap.get(row.payerId) ?? row.payerId}</td>
                       <td>
                         <div className="settlement-original-amount">
@@ -459,7 +462,9 @@ export function SettlementView({
                           <td key={`${row.expenseId}-${member.id}`} className="settlement-member-share-cell">
                             {isForeign ? (
                               <div className="settlement-member-share">
-                                <strong>{row.originalCurrency} {formatNumber2(memberLocalShare)}</strong>
+                                <strong>
+                                  {row.originalCurrency} {formatNumber2(memberLocalShare)}
+                                </strong>
                                 <p className="hint-text">{row.amountSource === 'final' ? '실제' : '예상'} {formatKrw(memberKrwShare)}</p>
                               </div>
                             ) : (
@@ -471,7 +476,9 @@ export function SettlementView({
                       <td>
                         {isForeign ? (
                           <div className="settlement-member-share">
-                            <strong>{row.originalCurrency} {formatNumber2(row.originalAmount)}</strong>
+                            <strong>
+                              {row.originalCurrency} {formatNumber2(row.originalAmount)}
+                            </strong>
                             <p className="hint-text">{row.amountSource === 'final' ? '실제' : '예상'} {formatKrw(row.memberDisplayShareTotal)}</p>
                           </div>
                         ) : (
@@ -496,6 +503,3 @@ export function SettlementView({
     </section>
   );
 }
-
-
-

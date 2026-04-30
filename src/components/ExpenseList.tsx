@@ -45,7 +45,7 @@ export function ExpenseList({
         <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50">
           <Tag size={32} className="text-slate-300" />
         </div>
-        <h3 className="mb-2 text-xl font-bold text-slate-800">No expenses logged</h3>
+        <h3 className="mb-2 text-xl font-bold text-slate-800">아직 기록된 지출이 없습니다</h3>
         <p className="max-w-xs text-slate-500">직접 입력 또는 영수증 사진/매출전표 등록으로 첫 지출을 기록해보세요.</p>
       </div>
     );
@@ -61,13 +61,13 @@ export function ExpenseList({
             <div className="flex items-center justify-between px-2">
               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">{date}</span>
               <span className="text-[10px] font-bold uppercase tracking-tighter text-slate-500">
-                Daily sum: <span className="ml-1 font-mono font-bold text-slate-900">{formatKrw(dateTotal)}</span>
+                일별 합계 <span className="ml-1 font-mono font-bold text-slate-900">{formatKrw(dateTotal)}</span>
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               {items.map((expense) => {
-                const payerName = memberMap.get(expense.payerId) ?? '알 수 없음';
+                const payerName = memberMap.get(expense.payerId) ?? '결제자 없음';
                 const participantNames = expense.participants.map((id) => memberMap.get(id) ?? id).join(', ');
                 const isEditing = editingExpenseId === expense.id;
                 const isForeign = expense.originalCurrency !== 'KRW';
@@ -80,12 +80,12 @@ export function ExpenseList({
                     className={`group flex items-center p-5 transition-all hover:bg-slate-50/80 ${isEditing ? 'bg-indigo-50/70' : ''}`}
                   >
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 shadow-sm transition-colors group-hover:shadow-indigo-100">
-                      <span className="text-xl">•</span>
+                      <span className="text-xl">₩</span>
                     </div>
 
                     <div className="ml-4 min-w-0 flex-1 pr-4">
                       <div className="mb-1 flex items-center gap-2">
-                        <h4 className="truncate text-sm font-bold uppercase tracking-tight text-slate-800 transition-colors group-hover:text-indigo-600">
+                        <h4 className="truncate text-sm font-bold tracking-tight text-slate-800 transition-colors group-hover:text-indigo-600">
                           {expense.place}
                         </h4>
                         {expense.paymentMethod ? (
@@ -95,8 +95,8 @@ export function ExpenseList({
                         ) : null}
                       </div>
 
-                      <p className="text-[11px] font-bold uppercase tracking-tighter text-slate-400">
-                        {payerName} · {participantNames}
+                      <p className="text-[11px] font-bold tracking-tight text-slate-400">
+                        결제자 {payerName} · 참여자 {participantNames}
                       </p>
 
                       {expense.extraAllocations.length > 0 ? (
@@ -114,7 +114,7 @@ export function ExpenseList({
                         {isForeign ? `${expense.originalCurrency} ${formatNumber2(expense.originalAmount)}` : formatKrw(expense.originalAmount)}
                       </div>
                       {isForeign ? (
-                        <span className="mt-1 text-[10px] font-bold uppercase tracking-tighter text-slate-400">
+                        <span className="mt-1 text-[10px] font-bold tracking-tighter text-slate-400">
                           {finalKrwAmount !== null ? `실제 ${formatKrw(finalKrwAmount)}` : `예상 ${formatKrw(estimatedKrwAmount)}`}
                         </span>
                       ) : null}

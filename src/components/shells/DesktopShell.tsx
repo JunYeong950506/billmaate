@@ -34,13 +34,13 @@ export function DesktopShell({
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-white">BillMate</h1>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Travel Expense</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">여행 경비</p>
             </div>
           </button>
 
           <div className="space-y-1">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Your Trips</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">여행 목록</p>
             </div>
 
             <div className="max-h-[calc(100vh-250px)] space-y-1 overflow-y-auto pr-1">
@@ -58,7 +58,7 @@ export function DesktopShell({
                   >
                     <div className="min-w-0 flex-1 pr-2">
                       <span className={`block truncate text-sm font-semibold ${isSelected ? 'text-white' : ''}`}>{trip.name}</span>
-                      <span className="block text-[10px] opacity-60">{summary?.expenseCount ?? 0} entries</span>
+                      <span className="block text-[10px] opacity-60">{summary?.expenseCount ?? 0}건</span>
                     </div>
                     {isSelected ? (
                       <div className="h-2 w-2 shrink-0 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
@@ -80,7 +80,7 @@ export function DesktopShell({
 
               {trips.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-800/30 p-4 text-center">
-                  <p className="text-xs font-medium text-slate-500">기록이 없습니다.</p>
+                  <p className="text-xs font-medium text-slate-500">등록된 여행이 없습니다.</p>
                 </div>
               ) : null}
             </div>
@@ -93,7 +93,7 @@ export function DesktopShell({
             onClick={onShowNewTrip}
             className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-95 hover:bg-indigo-500"
           >
-            + New Trip
+            + 새 여행 만들기
           </button>
         </div>
       </aside>

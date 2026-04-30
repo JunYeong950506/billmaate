@@ -90,7 +90,7 @@ export function ExpenseComposer({
   onCancelEdit,
 }: ExpenseComposerProps): JSX.Element {
   const [mode, setMode] = useState<InputMode>('direct');
-  const [quickStep, setQuickStep] = useState<1 | 2 | 3>(1);
+  const [quickStep, setQuickStep] = useState<1 | 2>(1);
   const [payerId, setPayerId] = useState(trip.defaultPayerId);
   const [place, setPlace] = useState('');
   const [date, setDate] = useState(todayIso());
@@ -127,9 +127,6 @@ export function ExpenseComposer({
   const effectiveRate = currency === 'KRW' ? 1 : rate;
   const estimatedKrw = currency === 'KRW' ? amount : amount * effectiveRate;
 
-  const defaultForeignCurrency: CurrencyCode = trip.defaultCurrency === 'KRW' ? 'USD' : trip.defaultCurrency;
-  const defaultForeignMeta = getCurrencyMeta(defaultForeignCurrency);
-  const currentForeignCurrency: CurrencyCode = currency === 'KRW' ? defaultForeignCurrency : currency;
   const resolvedRateForExtra = currency === 'KRW' ? 1 : rate > 0 ? rate : amount > 0 ? estimatedKrw / amount : 0;
 
   const extraTotalInput = participants.reduce((sum, memberId) => {
@@ -185,6 +182,12 @@ export function ExpenseComposer({
   useEffect(() => {
     void refreshAiStatus();
   }, []);
+
+  useEffect(() => {
+    if (quickMode && mode === 'csv') {
+      setMode('direct');
+    }
+  }, [mode, quickMode]);
 
   useEffect(() => {
     setMode('direct');
@@ -319,14 +322,7 @@ export function ExpenseComposer({
       return;
     }
 
-    if (quickStep === 2) {
-      if (!payerId) {
-        setError('결제자를 선택해주세요.');
-        return;
-      }
-      setError(null);
-      setQuickStep(3);
-    }
+    setError(null);
   }
 
   function moveQuickStepPrev(): void {
@@ -334,16 +330,8 @@ export function ExpenseComposer({
       return;
     }
 
-    if (quickStep === 2) {
-      setQuickStep(1);
-      setError(null);
-      return;
-    }
-
-    if (quickStep === 3) {
-      setQuickStep(2);
-      setError(null);
-    }
+    setQuickStep(1);
+    setError(null);
   }
 
   function handleCurrencyChange(nextCurrency: CurrencyCode): void {
@@ -351,53 +339,30 @@ export function ExpenseComposer({
     setError(null);
   }
 
-  function renderCurrencySelector(label = '통화'): JSX.Element {
-    const selectedMeta = getCurrencyMeta(currentForeignCurrency);
-
+  function renderPrimaryValueField(): JSX.Element {
+    const selectedMeta = getCurrencyMeta(currency);
     return (
       <div className="field">
-        <span>{label}</span>
-        <div className="foreign-currency-row">
-          <button
-            type="button"
-            className={`foreign-currency-default-btn ${currency === defaultForeignCurrency ? 'foreign-currency-default-btn-active' : ''}`}
-            onClick={() => handleCurrencyChange(defaultForeignCurrency)}
-          >
-            <span className="foreign-currency-default-badge">기본 외화</span>
-            <span className="foreign-currency-default-main">
-              <img className="currency-option-flag" src={defaultForeignMeta.flag} alt="" loading="lazy" />
-              <span className="foreign-currency-default-text">
-                <strong>{defaultForeignMeta.name}</strong>
-                <span>
-                  {defaultForeignMeta.code} · {defaultForeignMeta.symbol}
-                </span>
-              </span>
-            </span>
-          </button>
+        <span>금액 및 통화</span>
+        <div className="expense-value-row">
+          <div className="expense-value-amount">
+            <span className="expense-value-caption">Amount</span>
+            <div className="expense-value-input-shell">
+              <span className="expense-value-symbol">{selectedMeta.symbol}</span>
+              <input
+                className="expense-value-input"
+                value={amountText}
+                onChange={(event) => setAmountText(event.target.value)}
+                inputMode="decimal"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
 
-          <CurrencyPicker
-            value={currentForeignCurrency}
-            onChange={handleCurrencyChange}
-            includeKrw={false}
-            grouped={false}
-            modalTitle="다른 외화 선택"
-            triggerVariant="guide"
-            triggerLabel="다른 외화 고르기"
-            triggerHint={`현재: ${selectedMeta.name}`}
-          />
-        </div>
-
-        <div className="foreign-currency-footer">
-          <button
-            type="button"
-            className={`text-btn foreign-currency-krw-btn ${currency === 'KRW' ? 'foreign-currency-krw-btn-active' : ''}`}
-            onClick={() => handleCurrencyChange('KRW')}
-          >
-            원화(KRW)로 입력
-          </button>
-          <p className="hint-text">
-            {currency === 'KRW' ? '현재 원화 입력 모드입니다.' : `현재 선택: ${getCurrencyMeta(currency).name} (${currency})`}
-          </p>
+          <div className="expense-value-currency">
+            <span className="expense-value-caption">Currency</span>
+            <CurrencyPicker value={currency} onChange={handleCurrencyChange} modalTitle="통화 선택" />
+          </div>
         </div>
       </div>
     );
@@ -405,7 +370,7 @@ export function ExpenseComposer({
   function submitExpense(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
 
-    if (quickMode && quickStep < 3) {
+    if (quickMode && quickStep < 2) {
       moveQuickStepNext();
       return;
     }
@@ -782,8 +747,8 @@ export function ExpenseComposer({
             <ReceiptText size={20} />
           </div>
           <div className="min-w-0">
-            <h3 className="truncate">Log Expense</h3>
-            <p className="hint-text">직접 입력을 중심으로 기록하고, 보조 기능은 같은 화면에서 이어서 사용합니다.</p>
+            <h3 className="truncate">지출 입력</h3>
+            <p className="hint-text">직접 입력을 중심으로 빠르게 기록하고, 보조 기능은 같은 화면에서 이어서 사용합니다.</p>
           </div>
         </div>
         {editingExpense ? <span className="editing-pill">수정 중</span> : null}
@@ -807,24 +772,26 @@ export function ExpenseComposer({
         >
           <span className="inline-flex items-center gap-2">
             <Camera size={16} />
-            영수증 사진
+            {quickMode ? '영수증 캡처' : '영수증 사진'}
           </span>
         </button>
-        <button
-          type="button"
-          className={`tab-btn ${mode === 'csv' ? 'tab-btn-active' : ''}`}
-          onClick={() => setMode('csv')}
-        >
-          <span className="inline-flex items-center gap-2">
-            <FileSpreadsheet size={16} />
-            매출전표 등록
-          </span>
-        </button>
+        {!quickMode ? (
+          <button
+            type="button"
+            className={`tab-btn ${mode === 'csv' ? 'tab-btn-active' : ''}`}
+            onClick={() => setMode('csv')}
+          >
+            <span className="inline-flex items-center gap-2">
+              <FileSpreadsheet size={16} />
+              매출전표 등록
+            </span>
+          </button>
+        ) : null}
       </div>
 
       {mode === 'ocr' ? (
         <div className="prototype-pane">
-          <p>영수증 사진 촬영은 보조기능입니다. AI 연결이 없으면 사용이 불가능합니다.</p>
+          <p>{quickMode ? '영수증 캡처는 카메라 또는 앨범 권한이 필요하며, AI 연결이 없으면 사용할 수 없습니다.' : '영수증 사진 촬영은 보조기능입니다. AI 연결이 없으면 사용이 불가능합니다.'}</p>
           <p className={aiReady ? 'hint-text' : 'error-text'}>{aiStatusMessage}</p>
           <div className="inline-fields">
             <label className="field">
@@ -1038,11 +1005,11 @@ export function ExpenseComposer({
                 <div className="quick-step-head">
                   <div className="quick-step-head-main">
                     <strong>모바일 빠른 기록</strong>
-                    <span>Step {quickStep}/3</span>
+                    <span>Step {quickStep}/2</span>
                   </div>
                   <p className="hint-text">한 번에 다 입력하지 않고, 핵심 정보부터 순서대로 기록합니다.</p>
-                  <div className="quick-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={quickStep}>
-                    {[1, 2, 3].map((step) => (
+                  <div className="quick-step-indicator" role="progressbar" aria-valuemin={1} aria-valuemax={2} aria-valuenow={quickStep}>
+                    {[1, 2].map((step) => (
                       <span
                         key={`quick-step-indicator-${step}`}
                         className={`quick-step-dot ${quickStep >= step ? 'quick-step-dot-active' : ''}`}
@@ -1053,20 +1020,7 @@ export function ExpenseComposer({
 
                 {quickStep === 1 ? (
                   <div className="quick-step-section">
-                    <div className="field">
-                      <span>금액 및 통화</span>
-                      <div className="amount-input-wrap">
-                        <b>{getCurrencyMeta(currency).symbol}</b>
-                        <input
-                          value={amountText}
-                          onChange={(event) => setAmountText(event.target.value)}
-                          inputMode="decimal"
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-
-                    {renderCurrencySelector('통화 선택')}
+                    {renderPrimaryValueField()}
 
                     <label className="field">
                       <span>지출 내용</span>
@@ -1114,17 +1068,11 @@ export function ExpenseComposer({
                         {rateMessage ? <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p> : null}
 
                         <div className="panel-muted">
-                          <strong>예상 원화 금액 (참고)</strong>
+                          <strong>예상 원화 금액</strong>
                           <p>~ {formatKrw(estimatedKrw)}</p>
-                          <p className="hint-text">환율 없이도 저장할 수 있고, 정산 내역에서 실제 원화를 나중에 확정할 수 있습니다.</p>
                         </div>
                       </>
-                    ) : (
-                      <div className="panel-muted">
-                        <strong>원화 입력 모드</strong>
-                        <p>입력한 금액이 바로 정산 기준 금액으로 사용됩니다.</p>
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -1152,11 +1100,7 @@ export function ExpenseComposer({
                         ))}
                       </div>
                     </div>
-                  </div>
-                ) : null}
 
-                {quickStep === 3 ? (
-                  <div className="quick-step-section">
                     <div className="field">
                       <span className="inline-flex items-center gap-2">
                         <Users size={14} />
@@ -1241,7 +1185,7 @@ export function ExpenseComposer({
                     )}
                   </div>
 
-                  {quickStep < 3 ? (
+                  {quickStep < 2 ? (
                     <button type="button" className="primary-btn" onClick={moveQuickStepNext}>
                       다음
                     </button>
@@ -1257,23 +1201,7 @@ export function ExpenseComposer({
             <>
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
                 <div className="space-y-6">
-                  <div className="panel-muted">
-                    <strong>직접 입력</strong>
-                    <p>샘플 폼 배치를 기준으로 금액, 지출 내용, 일정 순서로 바로 기록합니다.</p>
-                  </div>
-
-                  <div className="field">
-                    <span>금액 및 통화</span>
-                    <div className="amount-input-wrap">
-                      <b>{getCurrencyMeta(currency).symbol}</b>
-                      <input
-                        value={amountText}
-                        onChange={(event) => setAmountText(event.target.value)}
-                        inputMode="decimal"
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
+                  {renderPrimaryValueField()}
 
                   <label className="field">
                     <span>지출 내용</span>
@@ -1297,8 +1225,6 @@ export function ExpenseComposer({
                 </div>
 
                 <div className="space-y-6">
-                  {renderCurrencySelector('통화 선택')}
-
                   {currency !== 'KRW' ? (
                     <>
                       <div className="quick-rate-row">
@@ -1325,25 +1251,15 @@ export function ExpenseComposer({
                       {rateMessage ? <p className={rateStatus === 'error' ? 'error-text' : 'hint-text'}>{rateMessage}</p> : null}
 
                       <div className="panel-muted">
-                        <strong>예상 원화 금액 (참고)</strong>
+                        <strong>예상 원화 금액</strong>
                         <p>~ {formatKrw(estimatedKrw)}</p>
-                        {rate <= 0 ? <p className="hint-text">환율 없이 저장하면 예상 원화는 0원으로 저장됩니다.</p> : null}
+                        {rate <= 0 ? <p className="hint-text">환율을 비우면 현지 화폐 기준으로 저장됩니다.</p> : null}
                         {editingExpense && getFinalKrwAmount(editingExpense) !== null ? (
-                          <p className="hint-text">현재 실제 확정 금액: {formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
+                          <p className="hint-text">현재 실제 원화: {formatKrw(getFinalKrwAmount(editingExpense) ?? 0)}</p>
                         ) : null}
                       </div>
                     </>
-                  ) : (
-                    <div className="panel-muted">
-                      <strong>원화 입력 모드</strong>
-                      <p>환율 없이 바로 저장되며, 정산 내역에서는 실제 원화 금액만 검토하면 됩니다.</p>
-                    </div>
-                  )}
-
-                  <div className="panel-muted">
-                    <strong>보류 UI 유지</strong>
-                    <p>결제자, 참여 인원, 추가 부담금은 아래 고급 설정 영역에서 그대로 사용할 수 있습니다.</p>
-                  </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1430,12 +1346,7 @@ export function ExpenseComposer({
                     </p>
                   </div>
                 </>
-              ) : (
-                <div className="panel-muted">
-                  <strong>고급 분배 UI 보류</strong>
-                  <p>현재는 핵심 기록 입력을 먼저 노출하고, 세부 분배 입력은 필요할 때만 펼쳐 사용합니다.</p>
-                </div>
-              )}
+              ) : null}
 
               {error ? <p className="error-text">{error}</p> : null}
 

@@ -12,7 +12,7 @@ import { DesktopShell } from './components/shells/DesktopShell';
 import { MobileShell } from './components/shells/MobileShell';
 
 type DesktopView = 'home' | 'new' | 'detail';
-type MobileNav = 'home' | 'record' | 'settlement' | 'new';
+type MobileNav = 'home' | 'record' | 'settlement' | 'settings' | 'new';
 
 interface RemovedTripSnapshot {
   trip: Trip;
@@ -85,7 +85,7 @@ export default function App(): JSX.Element {
   }, [selectedTripId, sortedTrips]);
 
   useEffect(() => {
-    if (!selectedTrip && (desktopView === 'detail' || mobileNav === 'record' || mobileNav === 'settlement')) {
+    if (!selectedTrip && (desktopView === 'detail' || mobileNav === 'record' || mobileNav === 'settlement' || mobileNav === 'settings')) {
       setDesktopView('home');
       setMobileNav('home');
     }
@@ -216,7 +216,8 @@ export default function App(): JSX.Element {
           onRemoveExpense={handleRemoveExpense}
           onSetExpenseFinalKrwAmount={handleSetExpenseFinalKrwAmount}
           onUpdateTrip={handleUpdateTrip}
-          defaultTab="settlementResult"
+          onGoHome={() => setDesktopView('home')}
+          defaultTab="settlementDetail"
         />
       );
     }
@@ -255,7 +256,7 @@ export default function App(): JSX.Element {
           onRemoveExpense={handleRemoveExpense}
           onSetExpenseFinalKrwAmount={handleSetExpenseFinalKrwAmount}
           onUpdateTrip={handleUpdateTrip}
-          onRequestRecordTab={() => setMobileNav('record')}
+          onGoHome={() => setMobileNav('home')}
           forceTab="record"
         />
       );
@@ -271,8 +272,24 @@ export default function App(): JSX.Element {
           onRemoveExpense={handleRemoveExpense}
           onSetExpenseFinalKrwAmount={handleSetExpenseFinalKrwAmount}
           onUpdateTrip={handleUpdateTrip}
-          onRequestRecordTab={() => setMobileNav('record')}
+          onGoHome={() => setMobileNav('home')}
           forceTab="settlement"
+        />
+      );
+    }
+
+    if (mobileNav === 'settings' && selectedTrip) {
+      return (
+        <TripDetail
+          trip={selectedTrip}
+          expenses={selectedTripExpenses}
+          layoutMode="mobile"
+          onSaveExpense={handleSaveExpense}
+          onRemoveExpense={handleRemoveExpense}
+          onSetExpenseFinalKrwAmount={handleSetExpenseFinalKrwAmount}
+          onUpdateTrip={handleUpdateTrip}
+          onGoHome={() => setMobileNav('home')}
+          forceTab="settings"
         />
       );
     }
@@ -300,9 +317,9 @@ export default function App(): JSX.Element {
           >
             <div className="flex items-center justify-between rounded-[24px] border border-white/10 bg-slate-900/95 p-6 text-white shadow-2xl backdrop-blur-2xl">
               <div className="flex flex-col">
-                <span className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Archived State</span>
+                <span className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">최근 삭제</span>
                 <span className="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold tracking-tight">
-                  {removedTripSnapshot.trip.name} was removed.
+                  {removedTripSnapshot.trip.name} 여행을 삭제했습니다.
                 </span>
               </div>
               <button
@@ -310,7 +327,7 @@ export default function App(): JSX.Element {
                 className="rounded-xl bg-indigo-600 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-95 hover:bg-indigo-500"
                 onClick={handleUndoRemoveTrip}
               >
-                Restore
+                복구
               </button>
             </div>
           </motion.div>
@@ -332,7 +349,7 @@ export default function App(): JSX.Element {
             >
               <div className="flex items-start gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-5 shadow-xl">
                 <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-orange-500" />
-                <p className="text-xs font-bold uppercase tracking-tighter text-orange-800">{errorMessage}</p>
+                <p className="text-xs font-bold tracking-tight text-orange-800">{errorMessage}</p>
               </div>
             </motion.div>
           ) : null}
@@ -361,14 +378,20 @@ export default function App(): JSX.Element {
         ? selectedTrip?.name
           ? `${selectedTrip.name} 정산`
           : '정산'
-        : mobileNav === 'record'
+        : mobileNav === 'settings'
           ? selectedTrip?.name
-            ? `${selectedTrip.name} 기록`
-            : '기록'
-          : '여행 목록';
+            ? `${selectedTrip.name} 설정`
+            : '설정'
+          : mobileNav === 'record'
+            ? selectedTrip?.name
+              ? `${selectedTrip.name} 지출`
+              : '지출'
+            : '여행 목록';
 
   const mobileSubtitle =
-    selectedTrip && (mobileNav === 'record' || mobileNav === 'settlement') ? `${selectedTrip.startDate} ~ ${selectedTrip.endDate}` : undefined;
+    selectedTrip && (mobileNav === 'record' || mobileNav === 'settlement' || mobileNav === 'settings')
+      ? `${selectedTrip.startDate} ~ ${selectedTrip.endDate}`
+      : undefined;
 
   return (
     <>
@@ -381,7 +404,7 @@ export default function App(): JSX.Element {
             className="fixed left-6 right-6 top-24 z-[200]"
           >
             <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4 text-center shadow-xl">
-              <p className="text-xs font-bold uppercase tracking-tighter text-orange-800">{errorMessage}</p>
+              <p className="text-xs font-bold tracking-tight text-orange-800">{errorMessage}</p>
             </div>
           </motion.div>
         ) : null}
@@ -395,8 +418,9 @@ export default function App(): JSX.Element {
         activeNav={mobileNav}
         canOpenRecord={Boolean(selectedTrip)}
         canOpenSettlement={Boolean(selectedTrip)}
+        canOpenSettings={Boolean(selectedTrip)}
         onChangeNav={(nextNav) => {
-          if ((nextNav === 'record' || nextNav === 'settlement') && !selectedTrip) {
+          if ((nextNav === 'record' || nextNav === 'settlement' || nextNav === 'settings') && !selectedTrip) {
             return;
           }
           setMobileNav(nextNav);
